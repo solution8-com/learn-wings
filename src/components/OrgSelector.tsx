@@ -41,8 +41,8 @@ export function OrgSelector() {
     fetchOrgs();
   }, [isPlatformAdmin, currentOrg, setCurrentOrg]);
 
-  // Only show for platform admins viewing as learner or org_admin
-  if (!isPlatformAdmin || viewMode === 'platform_admin') {
+  // Only show for platform admins
+  if (!isPlatformAdmin) {
     return null;
   }
 
@@ -55,22 +55,17 @@ export function OrgSelector() {
     );
   }
 
-  if (orgs.length === 0) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground">
-        <Building2 className="h-4 w-4" />
-        <span>No organizations</span>
-      </div>
-    );
-  }
-
   return (
     <div className="px-3 py-2">
       <Select
-        value={currentOrg?.id || ''}
+        value={currentOrg?.id || 'none'}
         onValueChange={(value) => {
-          const org = orgs.find((o) => o.id === value);
-          if (org) setCurrentOrg(org);
+          if (value === 'none') {
+            setCurrentOrg(null as unknown as Organization);
+          } else {
+            const org = orgs.find((o) => o.id === value);
+            if (org) setCurrentOrg(org);
+          }
         }}
       >
         <SelectTrigger className="w-full bg-sidebar-accent/50 border-sidebar-border text-sidebar-foreground">
@@ -80,6 +75,9 @@ export function OrgSelector() {
           </div>
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="none">
+            <span className="text-muted-foreground">Platform-wide (no org)</span>
+          </SelectItem>
           {orgs.map((org) => (
             <SelectItem key={org.id} value={org.id}>
               {org.name}
