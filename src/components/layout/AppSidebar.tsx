@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { NavLink } from '@/components/NavLink';
 import { useAuth, ViewMode } from '@/hooks/useAuth';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,6 +56,7 @@ export function AppSidebar() {
     viewMode,
     setViewMode,
   } = useAuth();
+  const { features } = usePlatformSettings();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -69,23 +71,26 @@ export function AppSidebar() {
     platform_admin: 'Platform Admin',
   };
 
+  // Build learner items based on feature toggles
   const learnerItems = [
     { title: 'Dashboard', url: '/app/dashboard', icon: LayoutDashboard },
     { title: 'My Courses', url: '/app/courses', icon: BookOpen },
-    { title: 'Certificates', url: '/app/certificates', icon: Award },
+    ...(features.certificates_enabled ? [{ title: 'Certificates', url: '/app/certificates', icon: Award }] : []),
   ];
 
+  // Build org admin items based on feature toggles
   const orgAdminItems = [
     { title: 'Organization', url: '/app/admin/org', icon: Building2 },
     { title: 'Team Members', url: '/app/admin/users', icon: Users },
-    { title: 'Analytics', url: '/app/admin/analytics', icon: BarChart3 },
+    ...(features.analytics_enabled ? [{ title: 'Analytics', url: '/app/admin/analytics', icon: BarChart3 }] : []),
   ];
 
+  // Build platform admin items based on feature toggles
   const platformAdminItems = [
     { title: 'Platform Overview', url: '/app/admin/platform', icon: Layers },
     { title: 'Organizations', url: '/app/admin/organizations', icon: Building2 },
     { title: 'Course Manager', url: '/app/admin/courses', icon: GraduationCap },
-    { title: 'Global Analytics', url: '/app/admin/analytics/global', icon: BarChart3 },
+    ...(features.analytics_enabled ? [{ title: 'Global Analytics', url: '/app/admin/analytics/global', icon: BarChart3 }] : []),
     { title: 'Platform Settings', url: '/app/admin/platform/settings', icon: SettingsIcon },
   ];
 

@@ -3,13 +3,16 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { Enrollment, Course } from '@/lib/types';
-import { Award, Download, Loader2 } from 'lucide-react';
+import { Award, Download, Loader2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Navigate } from 'react-router-dom';
 
 export default function Certificates() {
   const { user, currentOrg, profile } = useAuth();
+  const { features, isLoading: settingsLoading } = usePlatformSettings();
   const [completedEnrollments, setCompletedEnrollments] = useState<(Enrollment & { course: Course })[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +39,12 @@ export default function Certificates() {
     fetchData();
   }, [user, currentOrg]);
 
-  if (loading) {
+  // Redirect if certificates are disabled
+  if (!settingsLoading && !features.certificates_enabled) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  if (loading || settingsLoading) {
     return (
       <AppLayout title="Certificates" breadcrumbs={[{ label: 'Certificates' }]}>
         <div className="flex h-64 items-center justify-center">
