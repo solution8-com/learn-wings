@@ -118,13 +118,21 @@ export default function Signup() {
       const { data: { user: newUser } } = await supabase.auth.getUser();
       
       if (newUser) {
-        // Create org membership
-        await supabase.from('org_memberships').insert({
-          org_id: invitation.org_id,
-          user_id: newUser.id,
-          role: invitation.role,
-          status: 'active',
-        });
+        if (invitation.is_platform_admin_invite) {
+          // Set the user as platform admin
+          await supabase
+            .from('profiles')
+            .update({ is_platform_admin: true })
+            .eq('id', newUser.id);
+        } else if (invitation.org_id) {
+          // Create org membership
+          await supabase.from('org_memberships').insert({
+            org_id: invitation.org_id,
+            user_id: newUser.id,
+            role: invitation.role,
+            status: 'active',
+          });
+        }
 
         // Update invitation status
         await supabase
@@ -170,8 +178,14 @@ export default function Signup() {
           <Alert className="mb-4 border-accent/50 bg-accent/10">
             <CheckCircle2 className="h-4 w-4 text-accent" />
             <AlertDescription className="text-sm">
-              You've been invited to join <strong>{(invitation as any).organization?.name}</strong> as a{' '}
-              <strong>{invitation.role === 'org_admin' ? 'Team Admin' : 'Learner'}</strong>.
+              {invitation.is_platform_admin_invite ? (
+                <>You've been invited to join <strong>AIR Academy</strong> as a <strong>Platform Admin</strong>.</>
+              ) : (
+                <>
+                  You've been invited to join <strong>{invitation.organization?.name}</strong> as a{' '}
+                  <strong>{invitation.role === 'org_admin' ? 'Team Admin' : 'Learner'}</strong>.
+                </>
+              )}
             </AlertDescription>
           </Alert>
         )}
