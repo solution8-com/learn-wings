@@ -123,11 +123,6 @@ export function AppSidebar() {
               <span className="font-display text-lg font-bold text-sidebar-foreground">
                 AIR Academy
               </span>
-              {currentOrg && (
-                <span className="text-xs text-sidebar-foreground/60">
-                  {currentOrg.name}
-                </span>
-              )}
             </div>
           )}
         </div>
