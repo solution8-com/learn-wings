@@ -37,7 +37,7 @@ export interface OrgMembership {
 
 export interface Invitation {
   id: string;
-  org_id: string;
+  org_id: string | null;
   email: string;
   role: OrgRole;
   token: string;
@@ -45,6 +45,7 @@ export interface Invitation {
   invited_by_user_id: string | null;
   created_at: string;
   expires_at: string;
+  is_platform_admin_invite: boolean;
   organization?: Organization;
 }
 

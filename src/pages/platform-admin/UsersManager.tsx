@@ -53,11 +53,17 @@ import { Users, MoreHorizontal, Shield, ShieldOff, Search, Loader2, Mail, Copy, 
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 
+// Invite type includes platform_admin option
+type InviteRoleType = 'learner' | 'org_admin' | 'platform_admin';
+
 const inviteSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
-  orgId: z.string().uuid('Please select an organization'),
-  role: z.enum(['org_admin', 'learner']),
-});
+  inviteType: z.enum(['learner', 'org_admin', 'platform_admin']),
+  orgId: z.string().uuid().optional(),
+}).refine(
+  (data) => data.inviteType === 'platform_admin' || data.orgId,
+  { message: 'Please select an organization for non-platform admin invites', path: ['orgId'] }
+);
 
 interface UserWithDetails extends Profile {
   memberships: (OrgMembership & { organization: Organization })[];
@@ -74,8 +80,8 @@ export default function UsersManager() {
   
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteOrgId, setInviteOrgId] = useState('');
-  const [inviteRole, setInviteRole] = useState<OrgRole>('learner');
+  const [inviteOrgId, setInviteOrgId] = useState<string>('');
+  const [inviteType, setInviteType] = useState<InviteRoleType>('learner');
   const [inviting, setInviting] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   
@@ -172,7 +178,11 @@ export default function UsersManager() {
   };
 
   const handleInvite = async () => {
-    const result = inviteSchema.safeParse({ email: inviteEmail, orgId: inviteOrgId, role: inviteRole });
+    const result = inviteSchema.safeParse({ 
+      email: inviteEmail, 
+      orgId: inviteType === 'platform_admin' ? undefined : inviteOrgId || undefined, 
+      inviteType 
+    });
     if (!result.success) {
       toast({
         title: 'Invalid input',
@@ -184,30 +194,62 @@ export default function UsersManager() {
 
     setInviting(true);
 
-    const { error } = await supabase
-      .from('invitations')
-      .insert({
-        org_id: inviteOrgId,
-        email: inviteEmail,
-        role: inviteRole,
-      });
+    if (inviteType === 'platform_admin') {
+      // Platform admin invite - no org required
+      const { error } = await supabase
+        .from('invitations')
+        .insert({
+          email: inviteEmail,
+          role: 'learner', // Role doesn't matter for platform admins, they get is_platform_admin flag
+          is_platform_admin_invite: true,
+          org_id: null,
+        });
 
-    if (error) {
-      toast({
-        title: 'Failed to create invitation',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (error) {
+        toast({
+          title: 'Failed to create invitation',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Platform admin invitation created!',
+          description: 'Copy the invite link to share with the user.',
+        });
+        setInviteOpen(false);
+        setInviteEmail('');
+        setInviteOrgId('');
+        setInviteType('learner');
+        fetchData();
+      }
     } else {
-      toast({
-        title: 'Invitation created!',
-        description: 'Copy the invite link to share with the user.',
-      });
-      setInviteOpen(false);
-      setInviteEmail('');
-      setInviteOrgId('');
-      setInviteRole('learner');
-      fetchData();
+      // Regular org invite
+      const { error } = await supabase
+        .from('invitations')
+        .insert({
+          org_id: inviteOrgId,
+          email: inviteEmail,
+          role: inviteType as OrgRole,
+          is_platform_admin_invite: false,
+        });
+
+      if (error) {
+        toast({
+          title: 'Failed to create invitation',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Invitation created!',
+          description: 'Copy the invite link to share with the user.',
+        });
+        setInviteOpen(false);
+        setInviteEmail('');
+        setInviteOrgId('');
+        setInviteType('learner');
+        fetchData();
+      }
     }
 
     setInviting(false);
@@ -244,9 +286,10 @@ export default function UsersManager() {
     }
   };
 
-  const roleColors = {
+  const roleColors: Record<string, string> = {
     org_admin: 'bg-purple-100 text-purple-800',
     learner: 'bg-blue-100 text-blue-800',
+    platform_admin: 'bg-amber-100 text-amber-800',
   };
 
   const filteredUsers = users.filter((u) =>
@@ -288,7 +331,7 @@ export default function UsersManager() {
             <DialogHeader>
               <DialogTitle>Invite User</DialogTitle>
               <DialogDescription>
-                Send an invitation to join an organization on the platform.
+                Send an invitation to join the platform.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -303,38 +346,52 @@ export default function UsersManager() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Organization</Label>
-                <Select value={inviteOrgId} onValueChange={setInviteOrgId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an organization..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {organizations.map((org) => (
-                      <SelectItem key={org.id} value={org.id}>
-                        {org.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
                 <Label>Role</Label>
-                <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as OrgRole)}>
+                <Select value={inviteType} onValueChange={(v) => {
+                  setInviteType(v as InviteRoleType);
+                  if (v === 'platform_admin') {
+                    setInviteOrgId('');
+                  }
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="learner">Learner</SelectItem>
                     <SelectItem value="org_admin">Organization Admin</SelectItem>
+                    <SelectItem value="platform_admin">Platform Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {inviteType !== 'platform_admin' && (
+                <div className="space-y-2">
+                  <Label>Organization</Label>
+                  <Select value={inviteOrgId} onValueChange={setInviteOrgId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select an organization..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {inviteType === 'platform_admin' && (
+                <p className="text-sm text-muted-foreground">
+                  Platform admins have full access to all organizations and settings.
+                  They are not tied to any specific organization.
+                </p>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setInviteOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleInvite} disabled={inviting}>
+              <Button onClick={handleInvite} disabled={inviting || (inviteType !== 'platform_admin' && !inviteOrgId)}>
                 {inviting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -365,12 +422,20 @@ export default function UsersManager() {
                     <div>
                       <p className="font-medium">{invitation.email}</p>
                       <p className="text-xs text-muted-foreground">
-                        {invitation.organization?.name} • Expires{' '}
-                        {new Date(invitation.expires_at).toLocaleDateString()}
+                        {invitation.is_platform_admin_invite 
+                          ? 'Platform Admin' 
+                          : invitation.organization?.name}{' '}
+                        • Expires {new Date(invitation.expires_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <Badge className={roleColors[invitation.role]}>
-                      {invitation.role === 'org_admin' ? 'Admin' : 'Learner'}
+                    <Badge className={
+                      invitation.is_platform_admin_invite 
+                        ? roleColors.platform_admin 
+                        : roleColors[invitation.role]
+                    }>
+                      {invitation.is_platform_admin_invite 
+                        ? 'Platform Admin' 
+                        : invitation.role === 'org_admin' ? 'Org Admin' : 'Learner'}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">

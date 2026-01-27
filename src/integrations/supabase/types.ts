@@ -198,7 +198,8 @@ export type Database = {
           expires_at: string
           id: string
           invited_by_user_id: string | null
-          org_id: string
+          is_platform_admin_invite: boolean
+          org_id: string | null
           role: Database["public"]["Enums"]["org_role"]
           status: Database["public"]["Enums"]["invitation_status"]
           token: string
@@ -209,7 +210,8 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by_user_id?: string | null
-          org_id: string
+          is_platform_admin_invite?: boolean
+          org_id?: string | null
           role?: Database["public"]["Enums"]["org_role"]
           status?: Database["public"]["Enums"]["invitation_status"]
           token?: string
@@ -220,7 +222,8 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by_user_id?: string | null
-          org_id?: string
+          is_platform_admin_invite?: boolean
+          org_id?: string | null
           role?: Database["public"]["Enums"]["org_role"]
           status?: Database["public"]["Enums"]["invitation_status"]
           token?: string
