@@ -135,7 +135,7 @@ export default function CoursePlayer() {
     loadExistingReview();
   }, [user, currentOrg, courseId]);
 
-  // Load quiz when lesson changes
+  // Load quiz when lesson changes - uses public view to hide is_correct
   useEffect(() => {
     const loadQuiz = async () => {
       if (!currentLesson || currentLesson.lesson_type !== 'quiz') {
@@ -164,11 +164,16 @@ export default function CoursePlayer() {
         if (questionsData) {
           const questionsWithOptions = await Promise.all(
             questionsData.map(async (q) => {
+              // Use the public view that excludes is_correct column
               const { data: options } = await supabase
-                .from('quiz_options')
-                .select('*')
+                .from('quiz_options_public')
+                .select('id, question_id, option_text')
                 .eq('question_id', q.id);
-              return { ...q, options: options || [] };
+              // Add is_correct as undefined since we don't have access to it
+              return { 
+                ...q, 
+                options: (options || []).map(o => ({ ...o, is_correct: false })) 
+              };
             })
           );
           setQuestions(questionsWithOptions as any);
@@ -249,15 +254,24 @@ export default function CoursePlayer() {
   const handleSubmitQuiz = async () => {
     if (!quiz || !user || !currentOrg) return;
 
-    // Calculate score
-    let correct = 0;
-    questions.forEach(q => {
-      const selectedOption = q.options.find(o => o.id === answers[q.id]);
-      if (selectedOption?.is_correct) correct++;
+    // Grade quiz server-side using edge function
+    const { data: gradeResult, error: gradeError } = await supabase.functions.invoke('grade-quiz', {
+      body: {
+        quiz_id: quiz.id,
+        answers,
+      },
     });
 
-    const score = Math.round((correct / questions.length) * 100);
-    const passed = score >= quiz.passing_score;
+    if (gradeError || !gradeResult) {
+      toast({
+        title: 'Failed to grade quiz',
+        description: 'An error occurred while grading your quiz. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const { score, passed } = gradeResult;
 
     setQuizScore(score);
     setQuizSubmitted(true);

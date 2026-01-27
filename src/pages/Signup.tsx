@@ -37,22 +37,36 @@ export default function Signup() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
 
-  // Load invitation if token present
+  // Load invitation if token present - uses secure RPC function
   useEffect(() => {
     const loadInvitation = async () => {
       if (!inviteToken) return;
       
       setInviteLoading(true);
+      
+      // Use the secure RPC function to look up invitation by token
       const { data, error } = await supabase
-        .from('invitations')
-        .select('*, organization:organizations(*)')
-        .eq('token', inviteToken)
-        .eq('status', 'pending')
-        .maybeSingle();
+        .rpc('get_invitation_by_token', { lookup_token: inviteToken });
 
-      if (data && !error) {
-        setInvitation(data as unknown as Invitation);
-        setEmail(data.email);
+      if (data && data.length > 0 && !error) {
+        const invitationData = data[0];
+        
+        // Fetch organization details if org_id exists
+        let organization = null;
+        if (invitationData.org_id) {
+          const { data: orgData } = await supabase
+            .from('organizations')
+            .select('*')
+            .eq('id', invitationData.org_id)
+            .single();
+          organization = orgData;
+        }
+        
+        setInvitation({
+          ...invitationData,
+          organization,
+        } as Invitation);
+        setEmail(invitationData.email);
       } else {
         toast({
           title: 'Invalid invitation',
