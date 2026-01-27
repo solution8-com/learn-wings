@@ -20,11 +20,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { Course, CourseModule, Lesson, CourseLevel, LessonType } from '@/lib/types';
 import { ArrowLeft, Plus, Loader2, GripVertical, Trash2, Video, FileText, HelpCircle, Save, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
 export default function CourseEditor() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { features } = usePlatformSettings();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<CourseModule[]>([]);
@@ -409,7 +411,7 @@ export default function CourseEditor() {
                   <SelectContent>
                     <SelectItem value="video">Video</SelectItem>
                     <SelectItem value="document">Document</SelectItem>
-                    <SelectItem value="quiz">Quiz</SelectItem>
+                    {features.quizzes_enabled && <SelectItem value="quiz">Quiz</SelectItem>}
                   </SelectContent>
                 </Select>
               </div>

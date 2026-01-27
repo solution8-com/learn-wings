@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { StatCard } from '@/components/ui/stat-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { Users, TrendingUp, Award, BookOpen, Loader2 } from 'lucide-react';
 
@@ -33,6 +35,7 @@ interface UserStats {
 
 export default function OrgAnalytics() {
   const { currentOrg } = useAuth();
+  const { features, isLoading: settingsLoading } = usePlatformSettings();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -191,7 +194,12 @@ export default function OrgAnalytics() {
     fetchData();
   }, [currentOrg]);
 
-  if (loading) {
+  // Redirect if analytics are disabled
+  if (!settingsLoading && !features.analytics_enabled) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  if (loading || settingsLoading) {
     return (
       <AppLayout title="Analytics" breadcrumbs={[{ label: 'Analytics' }]}>
         <div className="flex h-64 items-center justify-center">
