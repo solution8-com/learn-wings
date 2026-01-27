@@ -637,10 +637,66 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      quiz_options_public: {
+        Row: {
+          id: string | null
+          option_text: string | null
+          question_id: string | null
+        }
+        Insert: {
+          id?: string | null
+          option_text?: string | null
+          question_id?: string | null
+        }
+        Update: {
+          id?: string | null
+          option_text?: string | null
+          question_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      can_access_lms_asset: { Args: { file_path: string }; Returns: boolean }
       current_org_ids_for_user: { Args: never; Returns: string[] }
+      get_invitation_by_token: {
+        Args: { lookup_token: string }
+        Returns: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_user_id: string | null
+          is_platform_admin_invite: boolean
+          org_id: string | null
+          role: Database["public"]["Enums"]["org_role"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          token: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "invitations"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_quiz_options_with_answers: {
+        Args: { p_question_id: string }
+        Returns: {
+          id: string
+          is_correct: boolean
+          option_text: string
+          question_id: string
+        }[]
+      }
       is_org_admin: { Args: { check_org_id: string }; Returns: boolean }
       is_org_member: { Args: { check_org_id: string }; Returns: boolean }
       is_platform_admin: { Args: never; Returns: boolean }
