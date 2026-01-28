@@ -194,11 +194,14 @@ export type Database = {
       invitations: {
         Row: {
           created_at: string
+          department: string | null
           email: string
           expires_at: string
+          first_name: string | null
           id: string
           invited_by_user_id: string | null
           is_platform_admin_invite: boolean
+          last_name: string | null
           link_id: string | null
           org_id: string | null
           role: Database["public"]["Enums"]["org_role"]
@@ -208,11 +211,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          department?: string | null
           email: string
           expires_at?: string
+          first_name?: string | null
           id?: string
           invited_by_user_id?: string | null
           is_platform_admin_invite?: boolean
+          last_name?: string | null
           link_id?: string | null
           org_id?: string | null
           role?: Database["public"]["Enums"]["org_role"]
@@ -222,11 +228,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          department?: string | null
           email?: string
           expires_at?: string
+          first_name?: string | null
           id?: string
           invited_by_user_id?: string | null
           is_platform_admin_invite?: boolean
+          last_name?: string | null
           link_id?: string | null
           org_id?: string | null
           role?: Database["public"]["Enums"]["org_role"]
@@ -699,11 +708,14 @@ export type Database = {
         Args: { lookup_token: string }
         Returns: {
           created_at: string
+          department: string | null
           email: string
           expires_at: string
+          first_name: string | null
           id: string
           invited_by_user_id: string | null
           is_platform_admin_invite: boolean
+          last_name: string | null
           link_id: string | null
           org_id: string | null
           role: Database["public"]["Enums"]["org_role"]

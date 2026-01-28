@@ -155,7 +155,7 @@ export default function OrgUsers() {
       return;
     }
 
-    // Create invitation
+    // Create invitation with metadata
     const { data: invitation, error } = await supabase
       .from('invitations')
       .insert({
@@ -163,6 +163,9 @@ export default function OrgUsers() {
         email: inviteEmail,
         role: inviteRole,
         invited_by_user_id: user.id,
+        first_name: inviteFirstName || null,
+        last_name: inviteLastName || null,
+        department: inviteDepartment || null,
       })
       .select('id')
       .single();
