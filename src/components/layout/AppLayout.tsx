@@ -10,6 +10,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -18,6 +19,11 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children, breadcrumbs = [], title }: AppLayoutProps) {
+  const { effectiveIsPlatformAdmin } = useAuth();
+  
+  // Platform admins go to Organizations, others go to Dashboard
+  const homeHref = effectiveIsPlatformAdmin ? '/app/admin/organizations' : '/app/dashboard';
+  
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
@@ -29,7 +35,7 @@ export function AppLayout({ children, breadcrumbs = [], title }: AppLayoutProps)
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbLink href="/app/dashboard">Home</BreadcrumbLink>
+                  <BreadcrumbLink href={homeHref}>Home</BreadcrumbLink>
                 </BreadcrumbItem>
                 {breadcrumbs.map((crumb, index) => (
                   <BreadcrumbItem key={index}>
