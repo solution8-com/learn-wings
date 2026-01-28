@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { SearchFilter } from '@/components/ui/search-filter';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,7 @@ export default function OrganizationsManager() {
   const [orgs, setOrgs] = useState<(Organization & { memberCount: number })[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -191,10 +193,22 @@ export default function OrganizationsManager() {
     );
   }
 
+  const filteredOrgs = orgs.filter(org =>
+    searchQuery === '' ||
+    org.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    org.slug.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <AppLayout title="Organizations" breadcrumbs={[{ label: 'Organizations' }]}>
-      {/* Actions */}
-      <div className="mb-6 flex justify-end">
+      {/* Search and Actions */}
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <SearchFilter
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search organizations..."
+          onClearFilters={() => setSearchQuery('')}
+        />
         <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button>
@@ -305,16 +319,18 @@ export default function OrganizationsManager() {
       </div>
 
       {/* Organizations List */}
-      {orgs.length === 0 ? (
+      {filteredOrgs.length === 0 ? (
         <EmptyState
           icon={<Building2 className="h-6 w-6" />}
-          title="No organizations yet"
-          description="Create your first organization to get started."
+          title={searchQuery ? "No matching organizations" : "No organizations yet"}
+          description={searchQuery ? "Try a different search term." : "Create your first organization to get started."}
           action={
-            <Button onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Organization
-            </Button>
+            !searchQuery ? (
+              <Button onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Organization
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -330,7 +346,7 @@ export default function OrganizationsManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orgs.map((org) => (
+              {filteredOrgs.map((org) => (
                 <TableRow 
                   key={org.id} 
                   className="cursor-pointer hover:bg-muted/50"

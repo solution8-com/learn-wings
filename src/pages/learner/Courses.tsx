@@ -5,7 +5,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { SearchFilter, FilterConfig } from '@/components/ui/search-filter';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,8 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Course, Enrollment } from '@/lib/types';
-import { BookOpen, Search, Play, Clock, CheckCircle2, Loader2, MoreVertical, LogOut } from 'lucide-react';
+import { Course, Enrollment, CourseLevel } from '@/lib/types';
+import { BookOpen, Play, Clock, CheckCircle2, Loader2, MoreVertical, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LearnerCourses() {
@@ -34,6 +34,8 @@ export default function LearnerCourses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [search, setSearch] = useState('');
+  const [levelFilter, setLevelFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<string | null>(null);
   const [unenrollDialog, setUnenrollDialog] = useState<{ open: boolean; course: Course | null; enrollment: Enrollment | null }>({
@@ -149,10 +151,62 @@ export default function LearnerCourses() {
     return enrollments.find(e => e.course_id === courseId);
   };
 
-  const filteredCourses = courses.filter(course =>
-    course.title.toLowerCase().includes(search.toLowerCase()) ||
-    course.description?.toLowerCase().includes(search.toLowerCase())
-  );
+  const courseFilters: FilterConfig[] = [
+    {
+      key: 'level',
+      label: 'Level',
+      options: [
+        { value: 'basic', label: 'Basic' },
+        { value: 'intermediate', label: 'Intermediate' },
+        { value: 'advanced', label: 'Advanced' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { value: 'enrolled', label: 'Enrolled' },
+        { value: 'completed', label: 'Completed' },
+        { value: 'not_enrolled', label: 'Not Enrolled' },
+      ],
+    },
+  ];
+
+  const filterValues = { level: levelFilter, status: statusFilter };
+
+  const handleFilterChange = (key: string, value: string) => {
+    if (key === 'level') setLevelFilter(value);
+    if (key === 'status') setStatusFilter(value);
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setLevelFilter('all');
+    setStatusFilter('all');
+  };
+
+  const filteredCourses = courses.filter(course => {
+    // Search filter
+    const matchesSearch = search === '' ||
+      course.title.toLowerCase().includes(search.toLowerCase()) ||
+      course.description?.toLowerCase().includes(search.toLowerCase());
+
+    // Level filter
+    const matchesLevel = levelFilter === 'all' || course.level === levelFilter;
+
+    // Status filter
+    const enrollment = getEnrollmentStatus(course.id);
+    let matchesStatus = true;
+    if (statusFilter === 'enrolled') {
+      matchesStatus = !!enrollment && enrollment.status !== 'completed';
+    } else if (statusFilter === 'completed') {
+      matchesStatus = enrollment?.status === 'completed';
+    } else if (statusFilter === 'not_enrolled') {
+      matchesStatus = !enrollment;
+    }
+
+    return matchesSearch && matchesLevel && matchesStatus;
+  });
 
   const levelColors = {
     basic: 'bg-green-100 text-green-800',
@@ -184,17 +238,17 @@ export default function LearnerCourses() {
 
   return (
     <AppLayout title="Course Catalog" breadcrumbs={[{ label: 'Courses' }]}>
-      {/* Search */}
+      {/* Search and Filters */}
       <div className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search courses..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <SearchFilter
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search courses..."
+          filters={courseFilters}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+        />
       </div>
 
       {filteredCourses.length === 0 ? (
