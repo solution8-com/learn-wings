@@ -1,218 +1,103 @@
 
-# Plan: Add Profile Editing at All Levels
 
-## Overview
-Enhance the existing Settings page to provide comprehensive profile editing capabilities for all user roles (learners, org admins, and platform admins). This includes updating display name and changing password with proper validation.
+# Email Notifications for Invitations using Resend
 
-## Current State Analysis
+## Prerequisites (Your Action Required)
 
-### What Already Exists
-- **Settings page** (`src/pages/Settings.tsx`): Basic profile name editing with a simple form
-- **Route**: `/app/settings` is already configured and protected
-- **Sidebar access**: Settings is accessible from the user dropdown menu in the sidebar
-- **Auth hook**: `useAuth()` provides `profile`, `user`, and `refreshUserContext()`
+### Step 1: Create Resend Account
+1. Go to **https://resend.com** and sign up for a free account
 
-### What's Missing
-- Password change functionality
-- Email display (read-only, for user reference)
-- Form validation with Zod
-- Better UX with separate sections for profile and security
-- Proper loading states and confirmation feedback
+### Step 2: Verify Your Domain
+1. Navigate to **https://resend.com/domains**
+2. Click **"Add Domain"**
+3. Enter: `ai-uddannelse.dk`
+4. Resend will show you DNS records to add. You'll need to add these in your GoDaddy DNS settings:
+   - **SPF record** (TXT record)
+   - **DKIM record** (TXT record) 
+   - **DMARC record** (TXT record - optional but recommended)
+5. Wait for verification (usually 5-30 minutes)
 
-## Implementation Steps
+### Step 3: Create API Key
+1. Go to **https://resend.com/api-keys**
+2. Click **"Create API Key"**
+3. Name it: `lovable-invitations`
+4. Copy the key immediately (you'll only see it once)
 
-### Step 1: Enhance Settings.tsx
-Expand the current Settings page with:
+### Step 4: Provide the API Key
+When you approve this plan, I'll prompt you to securely input the `RESEND_API_KEY`
 
-1. **Profile Section** (existing, enhanced)
-   - Full name input with validation
-   - Email display (read-only)
-   - Save button with loading state
+---
 
-2. **Security Section** (new)
-   - Current password verification (optional, Supabase doesn't require it for logged-in users)
-   - New password input with validation (min 6 chars)
-   - Confirm password input
-   - Change password button with loading state
+## Implementation Overview
 
-3. **Account Information Section** (new, read-only)
-   - Account created date
-   - Current role/organization info
-   - Member since date
+### What Gets Built
 
-## UI/UX Design
+1. **Edge Function**: `send-invitation-email` - Sends professional HTML invitation emails
+2. **Integration**: All 3 invitation creation points will trigger emails automatically
 
-```text
-+------------------------------------------+
-| Settings                                  |
-+------------------------------------------+
+### Email Template Features
+- Professional HTML design with platform branding
+- Dynamic content based on invitation type (Org invite vs Platform Admin invite)
+- Clear call-to-action button with the signup link
+- Role identification (Learner, Admin, Platform Admin)
+- 7-day expiration notice
 
-+------------------------------------------+
-| Profile                                   |
-| Update your personal information.         |
-+------------------------------------------+
-| Email                                     |
-| [user@example.com]  (read-only, dimmed)  |
-|                                          |
-| Full Name                                |
-| [John Doe                    ]           |
-|                                          |
-| [Save Changes]                           |
-+------------------------------------------+
-
-+------------------------------------------+
-| Security                                  |
-| Change your password.                     |
-+------------------------------------------+
-| New Password                             |
-| [••••••••                    ]           |
-| Must be at least 6 characters            |
-|                                          |
-| Confirm Password                         |
-| [••••••••                    ]           |
-|                                          |
-| [Update Password]                        |
-+------------------------------------------+
-
-+------------------------------------------+
-| Account Information                       |
-+------------------------------------------+
-| Account created: Jan 15, 2026            |
-| Role: Learner at Acme Corp               |
-+------------------------------------------+
-```
+---
 
 ## Technical Details
 
-### Files to Modify
+### Files Changed
 
-**1. `src/pages/Settings.tsx`**
-- Add password change section with new/confirm password fields
-- Add email display (read-only)
-- Add account information section
-- Implement Zod validation for both profile and password forms
-- Use `supabase.auth.updateUser({ password })` for password changes
-- Add proper error handling and success feedback
+| File | Change |
+|------|--------|
+| `supabase/functions/send-invitation-email/index.ts` | **New** - Edge function for sending emails |
+| `supabase/config.toml` | **Modified** - Register new function |
+| `src/components/org-admin/BulkInviteDialog.tsx` | **Modified** - Trigger email after bulk invite |
+| `src/pages/platform-admin/UsersManager.tsx` | **Modified** - Trigger email for platform admin invites |
+| `src/pages/platform-admin/OrganizationsManager.tsx` | **Modified** - Trigger email when creating org with initial admin |
 
-### Password Change Implementation
-
+### Edge Function Request Format
 ```typescript
-import { z } from 'zod';
-
-const passwordSchema = z.object({
-  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string(),
-}).refine((data) => data.newPassword === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
-const handlePasswordChange = async () => {
-  setPasswordSaving(true);
-  
-  const { error } = await supabase.auth.updateUser({
-    password: newPassword
-  });
-
-  if (error) {
-    toast({
-      title: 'Failed to update password',
-      description: error.message,
-      variant: 'destructive',
-    });
-  } else {
-    toast({
-      title: 'Password updated',
-      description: 'Your password has been changed successfully.',
-    });
-    // Clear password fields
-    setNewPassword('');
-    setConfirmPassword('');
-  }
-  setPasswordSaving(false);
-};
+{
+  email: string;           // Recipient email address
+  orgName: string | null;  // Organization name (null for platform admin invites)
+  role: string;            // 'learner' | 'org_admin' | 'platform_admin'
+  inviteLink: string;      // Full signup URL (e.g., https://ai-uddannelse.dk/signup?invite=abc123)
+}
 ```
 
-### Profile Update Implementation
+### Email Sender
+- **From**: `AIR Academy <no-reply@ai-uddannelse.dk>`
+- **Subject**: "You've been invited to join [Organization] on AIR Academy" (or "You've been invited as a Platform Administrator")
 
-```typescript
-const profileSchema = z.object({
-  fullName: z.string().trim().min(1, 'Name is required').max(100, 'Name is too long'),
-});
+### Error Handling
+- If email sending fails, the invitation is still created (email is an enhancement)
+- Toast notification indicates whether email was sent successfully
+- Errors are logged for debugging
 
-const handleProfileSave = async () => {
-  const result = profileSchema.safeParse({ fullName });
-  if (!result.success) {
-    // Handle validation errors
-    return;
-  }
+---
 
-  setSaving(true);
-  const { error } = await supabase
-    .from('profiles')
-    .update({ full_name: fullName })
-    .eq('id', profile.id);
+## Flow Diagram
 
-  if (error) {
-    toast({ title: 'Failed to update profile', variant: 'destructive' });
-  } else {
-    toast({ title: 'Profile updated' });
-    await refreshUserContext();
-  }
-  setSaving(false);
-};
+```text
+User creates invitation
+        ↓
+Invitation inserted in database
+        ↓
+Retrieve link_id from database
+        ↓
+Call send-invitation-email edge function
+        ↓
+Resend API sends email from no-reply@ai-uddannelse.dk
+        ↓
+Show success/error toast to admin
 ```
 
-### Component Structure
+---
 
-```typescript
-// State variables
-const [fullName, setFullName] = useState(profile?.full_name || '');
-const [saving, setSaving] = useState(false);
-const [profileErrors, setProfileErrors] = useState<{ fullName?: string }>({});
+## Next Steps After Approval
 
-// Password state
-const [newPassword, setNewPassword] = useState('');
-const [confirmPassword, setConfirmPassword] = useState('');
-const [passwordSaving, setPasswordSaving] = useState(false);
-const [passwordErrors, setPasswordErrors] = useState<{ 
-  newPassword?: string; 
-  confirmPassword?: string 
-}>({});
-```
+1. You'll be prompted to enter the `RESEND_API_KEY`
+2. I'll create the edge function and update the invitation components
+3. Test by creating an invitation from any of the 3 entry points
 
-### UI Components Used
-- `Card`, `CardHeader`, `CardContent`, `CardTitle`, `CardDescription`
-- `Input` for text and password fields
-- `Label` for field labels
-- `Button` with loading states
-- `Separator` between sections
-- Icons: `Loader2`, `User`, `Lock`, `Mail`, `Calendar`
-
-## Security Considerations
-- Password change uses Supabase's built-in `auth.updateUser()` which requires an active session
-- Email is displayed but not editable (would require email verification flow)
-- Input validation with Zod prevents injection attacks
-- No sensitive data exposed in error messages
-
-## Accessibility
-- Proper labels for all form fields
-- Password fields use `type="password"`
-- Loading states communicated via button text and icons
-- Error messages associated with form fields
-
-## Role-Specific Considerations
-All user roles (learner, org_admin, platform_admin) access the same Settings page with identical functionality. The account information section will display role-specific information:
-- **Learner**: Shows organization membership
-- **Org Admin**: Shows organization admin status
-- **Platform Admin**: Shows platform admin badge
-
-## Testing Recommendations
-After implementation:
-1. Log in as each role type (learner, org admin, platform admin)
-2. Test updating display name with valid/invalid inputs
-3. Test password change with matching/non-matching passwords
-4. Test password validation (min 6 characters)
-5. Verify toast notifications appear on success/failure
-6. Verify name updates are reflected in sidebar immediately
-7. Verify password change allows re-login with new password
