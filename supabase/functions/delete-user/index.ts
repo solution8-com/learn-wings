@@ -24,27 +24,32 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('delete-user: Request received');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
     // Create admin client with service role
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
     
-    // Create client with user's auth to check permissions
+    // Get auth header and extract token
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
+    console.log('delete-user: Auth header present:', !!authHeader);
+    
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.log('delete-user: Missing or invalid auth header');
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
     
-    const supabaseClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } }
-    })
+    // Extract token and verify user
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token)
     
-    // Get the requesting user
-    const { data: { user: requestingUser }, error: authError } = await supabaseClient.auth.getUser()
+    console.log('delete-user: User verification result:', !!requestingUser, authError?.message);
+    
     if (authError || !requestingUser) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
