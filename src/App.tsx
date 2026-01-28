@@ -10,6 +10,8 @@ import { Loader2 } from "lucide-react";
 // Pages
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import LearnerDashboard from "./pages/learner/Dashboard";
 import LearnerCourses from "./pages/learner/Courses";
 import CoursePlayer from "./pages/learner/CoursePlayer";
@@ -54,6 +56,8 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       
       {/* Protected learner routes */}
       <Route path="/app/dashboard" element={<ProtectedRoute><LearnerDashboard /></ProtectedRoute>} />
