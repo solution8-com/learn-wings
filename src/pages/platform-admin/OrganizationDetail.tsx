@@ -500,7 +500,7 @@ export default function OrganizationDetail() {
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
           {org.logo_url ? (
-            <img src={org.logo_url} alt={org.name} className="h-14 w-14 rounded-xl object-cover" />
+            <img src={org.logo_url} alt={org.name} className="h-14 w-14 rounded-xl object-contain bg-muted" />
           ) : (
             <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10">
               <Building2 className="h-7 w-7 text-primary" />
@@ -947,11 +947,38 @@ export default function OrganizationDetail() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Logo</Label>
+              <div className="border-2 border-dashed rounded-lg p-4 mb-3">
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-muted">
+                    <Building2 className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">Recommended specifications</p>
+                    <p className="text-xs text-muted-foreground">
+                      Square image, 256×256px or larger
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      PNG or JPG format, max 5MB
+                    </p>
+                  </div>
+                </div>
+              </div>
               <FileUpload
                 bucket="org-logos"
+                folder={orgId}
                 accept="image"
                 value={editLogoUrl}
-                onChange={(url) => setEditLogoUrl(url)}
+                onChange={(url, storagePath) => {
+                  if (url && storagePath) {
+                    // For public bucket, construct the public URL
+                    const { data: { publicUrl } } = supabase.storage
+                      .from('org-logos')
+                      .getPublicUrl(storagePath);
+                    setEditLogoUrl(publicUrl);
+                  } else {
+                    setEditLogoUrl(null);
+                  }
+                }}
                 maxSizeMB={5}
               />
             </div>
