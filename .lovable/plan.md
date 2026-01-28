@@ -1,215 +1,218 @@
 
-
-# Plan: Add User Progress Details for Org Admins
+# Plan: Add Profile Editing at All Levels
 
 ## Overview
-Implement a detailed view for Org Admins to see individual learner progress on courses. This will include lesson completion status, quiz attempt history, and overall progress metrics per user.
+Enhance the existing Settings page to provide comprehensive profile editing capabilities for all user roles (learners, org admins, and platform admins). This includes updating display name and changing password with proper validation.
 
 ## Current State Analysis
 
-### Existing Data Structure
-- **`enrollments`**: Tracks which users are enrolled in which courses (with `status`: enrolled/completed)
-- **`lesson_progress`**: Tracks individual lesson completion per user (`status`: not_started/in_progress/completed)
-- **`quiz_attempts`**: Stores quiz results (score, passed, timestamps)
-- **`org_memberships`**: Links users to organizations with roles
+### What Already Exists
+- **Settings page** (`src/pages/Settings.tsx`): Basic profile name editing with a simple form
+- **Route**: `/app/settings` is already configured and protected
+- **Sidebar access**: Settings is accessible from the user dropdown menu in the sidebar
+- **Auth hook**: `useAuth()` provides `profile`, `user`, and `refreshUserContext()`
 
-### Existing Patterns
-- `OrgAnalytics.tsx`: Shows summary user stats in a table (name, enrollments, completed, avg quiz score)
-- `UserDetailDialog.tsx`: Modal pattern for viewing/editing user details
-- `OrgUsers.tsx`: Table-based member listing with click actions
-- All org admin pages use `currentOrg` from `useAuth()` to scope data
-
-### RLS Policies (Already Configured)
-- Org admins can view `enrollments` in their org via `is_org_admin(org_id)`
-- Org admins can view `lesson_progress` in their org via `is_org_admin(org_id)`
-- Org admins can view `quiz_attempts` in their org via `is_org_admin(org_id)`
-
-## Implementation Approach
-
-### Option: Add Click-to-View on OrgAnalytics User Table
-The simplest approach is to make the existing user rows in `OrgAnalytics.tsx` clickable, opening a dialog that shows detailed progress for that user.
+### What's Missing
+- Password change functionality
+- Email display (read-only, for user reference)
+- Form validation with Zod
+- Better UX with separate sections for profile and security
+- Proper loading states and confirmation feedback
 
 ## Implementation Steps
 
-### Step 1: Create UserProgressDialog Component
-Create a new dialog component to display detailed user progress:
+### Step 1: Enhance Settings.tsx
+Expand the current Settings page with:
 
-**File**: `src/components/org-admin/UserProgressDialog.tsx`
+1. **Profile Section** (existing, enhanced)
+   - Full name input with validation
+   - Email display (read-only)
+   - Save button with loading state
 
-Features:
-- Header with user name and overall stats
-- List of enrolled courses with progress bars
-- Expandable course sections showing:
-  - Module/lesson completion status (checkmarks)
-  - Quiz attempt history with scores and dates
-- Summary metrics (total lessons completed, avg quiz score, last activity)
+2. **Security Section** (new)
+   - Current password verification (optional, Supabase doesn't require it for logged-in users)
+   - New password input with validation (min 6 chars)
+   - Confirm password input
+   - Change password button with loading state
 
-### Step 2: Update OrgAnalytics.tsx
-Modify the Team Performance table to:
-- Make rows clickable to open the progress dialog
-- Add a "View Details" button or cursor pointer indicator
-- Import and render the `UserProgressDialog` component
+3. **Account Information Section** (new, read-only)
+   - Account created date
+   - Current role/organization info
+   - Member since date
 
 ## UI/UX Design
 
-### Team Performance Table (Updated)
 ```text
-+------------------------------------------------------+
-| Team Performance                                      |
-+------------------------------------------------------+
-| Name          | Courses | Completed | Avg Score | -> |
-+------------------------------------------------------+
-| John Smith    |    3    |     2     |    85%    | >  |  <- Clickable row
-| Jane Doe      |    2    |     1     |    92%    | >  |
-+------------------------------------------------------+
-```
++------------------------------------------+
+| Settings                                  |
++------------------------------------------+
 
-### User Progress Dialog
-```text
-+----------------------------------------------------------+
-| [Avatar] John Smith                                       |
-| Member since: Jan 15, 2026                               |
-|----------------------------------------------------------|
-| Summary                                                   |
-| +----------+ +----------+ +----------+ +-------------+   |
-| | 3        | | 2        | | 85%      | | Jan 25      |   |
-| | Enrolled | | Complete | | Avg Quiz | | Last Active |   |
-| +----------+ +----------+ +----------+ +-------------+   |
-|----------------------------------------------------------|
-| Course Progress                                          |
-|                                                          |
-| [v] Introduction to AI                    [====100%====] |
-|     Completed on Jan 20, 2026                           |
-|                                                          |
-|     Module 1: Basics                                     |
-|       [x] Lesson 1: What is AI?                         |
-|       [x] Lesson 2: History of AI                       |
-|       [x] Quiz: Module 1 Review (Score: 90%)            |
-|                                                          |
-|     Quiz Attempts:                                       |
-|     +----------+-------+--------+------------------+    |
-|     | Quiz     | Score | Passed | Date             |    |
-|     +----------+-------+--------+------------------+    |
-|     | Module 1 | 90%   | Yes    | Jan 20, 2:30 PM  |    |
-|     | Module 1 | 65%   | No     | Jan 19, 4:15 PM  |    |
-|     +----------+-------+--------+------------------+    |
-|                                                          |
-| [ ] Machine Learning Fundamentals        [===60%=====]   |
-|     In Progress                                          |
-|                                                          |
-+----------------------------------------------------------+
-|                                              [Close]     |
-+----------------------------------------------------------+
++------------------------------------------+
+| Profile                                   |
+| Update your personal information.         |
++------------------------------------------+
+| Email                                     |
+| [user@example.com]  (read-only, dimmed)  |
+|                                          |
+| Full Name                                |
+| [John Doe                    ]           |
+|                                          |
+| [Save Changes]                           |
++------------------------------------------+
+
++------------------------------------------+
+| Security                                  |
+| Change your password.                     |
++------------------------------------------+
+| New Password                             |
+| [••••••••                    ]           |
+| Must be at least 6 characters            |
+|                                          |
+| Confirm Password                         |
+| [••••••••                    ]           |
+|                                          |
+| [Update Password]                        |
++------------------------------------------+
+
++------------------------------------------+
+| Account Information                       |
++------------------------------------------+
+| Account created: Jan 15, 2026            |
+| Role: Learner at Acme Corp               |
++------------------------------------------+
 ```
 
 ## Technical Details
 
-### Files to Create
-
-**1. `src/components/org-admin/UserProgressDialog.tsx`**
-- Props: `userId`, `userName`, `orgId`, `open`, `onOpenChange`
-- Fetches and displays:
-  - User's enrollments with course details
-  - Lesson progress per course
-  - Quiz attempts with scores and timestamps
-- Uses existing UI components: Dialog, Card, Progress, Badge, Table, Accordion
-
 ### Files to Modify
 
-**2. `src/pages/org-admin/OrgAnalytics.tsx`**
-- Add state for selected user and dialog visibility
-- Make table rows clickable
-- Add ChevronRight icon to indicate clickability
-- Import and render `UserProgressDialog`
+**1. `src/pages/Settings.tsx`**
+- Add password change section with new/confirm password fields
+- Add email display (read-only)
+- Add account information section
+- Implement Zod validation for both profile and password forms
+- Use `supabase.auth.updateUser({ password })` for password changes
+- Add proper error handling and success feedback
 
-### Data Fetching Strategy
-
-The dialog will fetch data when opened:
+### Password Change Implementation
 
 ```typescript
-// 1. Get user's enrollments for this org
-const { data: enrollments } = await supabase
-  .from('enrollments')
-  .select(`
-    *,
-    course:courses(id, title, level)
-  `)
-  .eq('org_id', orgId)
-  .eq('user_id', userId);
+import { z } from 'zod';
 
-// 2. For each course, get modules and lessons
-const { data: modules } = await supabase
-  .from('course_modules')
-  .select(`
-    *,
-    lessons(id, title, lesson_type, sort_order)
-  `)
-  .eq('course_id', courseId)
-  .order('sort_order');
+const passwordSchema = z.object({
+  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
 
-// 3. Get lesson progress for user
-const { data: progress } = await supabase
-  .from('lesson_progress')
-  .select('*')
-  .eq('user_id', userId)
-  .eq('org_id', orgId);
+const handlePasswordChange = async () => {
+  setPasswordSaving(true);
+  
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword
+  });
 
-// 4. Get quiz attempts for user
-const { data: attempts } = await supabase
-  .from('quiz_attempts')
-  .select(`
-    *,
-    quiz:quizzes(lesson_id)
-  `)
-  .eq('user_id', userId)
-  .eq('org_id', orgId)
-  .order('started_at', { ascending: false });
+  if (error) {
+    toast({
+      title: 'Failed to update password',
+      description: error.message,
+      variant: 'destructive',
+    });
+  } else {
+    toast({
+      title: 'Password updated',
+      description: 'Your password has been changed successfully.',
+    });
+    // Clear password fields
+    setNewPassword('');
+    setConfirmPassword('');
+  }
+  setPasswordSaving(false);
+};
+```
+
+### Profile Update Implementation
+
+```typescript
+const profileSchema = z.object({
+  fullName: z.string().trim().min(1, 'Name is required').max(100, 'Name is too long'),
+});
+
+const handleProfileSave = async () => {
+  const result = profileSchema.safeParse({ fullName });
+  if (!result.success) {
+    // Handle validation errors
+    return;
+  }
+
+  setSaving(true);
+  const { error } = await supabase
+    .from('profiles')
+    .update({ full_name: fullName })
+    .eq('id', profile.id);
+
+  if (error) {
+    toast({ title: 'Failed to update profile', variant: 'destructive' });
+  } else {
+    toast({ title: 'Profile updated' });
+    await refreshUserContext();
+  }
+  setSaving(false);
+};
 ```
 
 ### Component Structure
 
 ```typescript
-interface UserProgressDialogProps {
-  userId: string;
-  userName: string;
-  orgId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+// State variables
+const [fullName, setFullName] = useState(profile?.full_name || '');
+const [saving, setSaving] = useState(false);
+const [profileErrors, setProfileErrors] = useState<{ fullName?: string }>({});
 
-interface EnrollmentWithProgress {
-  enrollment: Enrollment;
-  course: Course;
-  modules: CourseModule[];
-  lessonProgress: Record<string, LessonProgress>;
-  quizAttempts: QuizAttempt[];
-  totalLessons: number;
-  completedLessons: number;
-}
+// Password state
+const [newPassword, setNewPassword] = useState('');
+const [confirmPassword, setConfirmPassword] = useState('');
+const [passwordSaving, setPasswordSaving] = useState(false);
+const [passwordErrors, setPasswordErrors] = useState<{ 
+  newPassword?: string; 
+  confirmPassword?: string 
+}>({});
 ```
 
 ### UI Components Used
-- `Dialog` - Main container
-- `Card` - Summary stats section
-- `Progress` - Course completion bars
-- `Accordion` or `Collapsible` - Expandable course sections
-- `Badge` - Status indicators (Completed, In Progress)
-- `Table` - Quiz attempt history
-- `CheckCircle2`, `Circle` icons - Lesson completion status
+- `Card`, `CardHeader`, `CardContent`, `CardTitle`, `CardDescription`
+- `Input` for text and password fields
+- `Label` for field labels
+- `Button` with loading states
+- `Separator` between sections
+- Icons: `Loader2`, `User`, `Lock`, `Mail`, `Calendar`
 
 ## Security Considerations
-- All data access is already protected by RLS policies
-- Org admins can only view progress for users in their organization
-- No edge functions required - direct Supabase queries with existing policies
+- Password change uses Supabase's built-in `auth.updateUser()` which requires an active session
+- Email is displayed but not editable (would require email verification flow)
+- Input validation with Zod prevents injection attacks
+- No sensitive data exposed in error messages
+
+## Accessibility
+- Proper labels for all form fields
+- Password fields use `type="password"`
+- Loading states communicated via button text and icons
+- Error messages associated with form fields
+
+## Role-Specific Considerations
+All user roles (learner, org_admin, platform_admin) access the same Settings page with identical functionality. The account information section will display role-specific information:
+- **Learner**: Shows organization membership
+- **Org Admin**: Shows organization admin status
+- **Platform Admin**: Shows platform admin badge
 
 ## Testing Recommendations
 After implementation:
-1. Log in as an org admin
-2. Navigate to Analytics page
-3. Click on a user row to open the progress dialog
-4. Verify enrolled courses are displayed
-5. Verify lesson completion status is accurate
-6. Verify quiz attempt history shows all attempts
-7. Test with users who have no enrollments (should show empty state)
-8. Test with users who have completed courses vs in-progress
-
+1. Log in as each role type (learner, org admin, platform admin)
+2. Test updating display name with valid/invalid inputs
+3. Test password change with matching/non-matching passwords
+4. Test password validation (min 6 characters)
+5. Verify toast notifications appear on success/failure
+6. Verify name updates are reflected in sidebar immediately
+7. Verify password change allows re-login with new password
