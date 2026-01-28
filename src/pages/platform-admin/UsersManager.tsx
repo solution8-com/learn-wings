@@ -30,29 +30,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Profile, OrgMembership, Organization, OrgRole, Invitation } from '@/lib/types';
-import { Users, MoreHorizontal, Shield, ShieldOff, Search, Loader2, Mail, Copy, Check, UserPlus } from 'lucide-react';
+import { Users, Shield, Search, Loader2, Mail, Copy, Check, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { getInviteLink } from '@/lib/config';
+import { UserDetailDialog } from '@/components/platform-admin/UserDetailDialog';
 
 // Invite type includes platform_admin option
 type InviteRoleType = 'learner' | 'org_admin' | 'platform_admin';
@@ -86,13 +71,8 @@ export default function UsersManager() {
   const [inviting, setInviting] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   
-  const [confirmDialog, setConfirmDialog] = useState<{
-    open: boolean;
-    userId: string;
-    userName: string;
-    action: 'grant' | 'revoke';
-  } | null>(null);
-  const [updating, setUpdating] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserWithDetails | null>(null);
+  const [userDetailOpen, setUserDetailOpen] = useState(false);
 
   const fetchData = async () => {
     // Fetch all profiles
@@ -147,35 +127,9 @@ export default function UsersManager() {
     fetchData();
   }, []);
 
-  const handleTogglePlatformAdmin = async () => {
-    if (!confirmDialog) return;
-    
-    const { userId, action } = confirmDialog;
-    setUpdating(userId);
-    setConfirmDialog(null);
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_platform_admin: action === 'grant' })
-      .eq('id', userId);
-
-    if (error) {
-      toast({
-        title: 'Failed to update user',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: action === 'grant' ? 'Admin access granted' : 'Admin access revoked',
-        description: action === 'grant' 
-          ? 'User now has platform admin privileges.' 
-          : 'User no longer has platform admin privileges.',
-      });
-      fetchData();
-    }
-
-    setUpdating(null);
+  const handleUserClick = (userItem: UserWithDetails) => {
+    setSelectedUser(userItem);
+    setUserDetailOpen(true);
   };
 
   const handleInvite = async () => {
@@ -495,12 +449,15 @@ export default function UsersManager() {
                 <TableHead>Organizations</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Joined</TableHead>
-                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredUsers.map((userItem) => (
-                <TableRow key={userItem.id}>
+                <TableRow 
+                  key={userItem.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleUserClick(userItem)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-medium">
@@ -532,7 +489,7 @@ export default function UsersManager() {
                   </TableCell>
                   <TableCell>
                     {userItem.is_platform_admin ? (
-                      <Badge className="bg-purple-100 text-purple-800">
+                      <Badge className="bg-primary/10 text-primary">
                         <Shield className="mr-1 h-3 w-3" />
                         Platform Admin
                       </Badge>
@@ -543,53 +500,6 @@ export default function UsersManager() {
                   <TableCell className="text-muted-foreground">
                     {new Date(userItem.created_at).toLocaleDateString()}
                   </TableCell>
-                  <TableCell>
-                    {userItem.id !== user?.id && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" disabled={updating === userItem.id}>
-                            {updating === userItem.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <MoreHorizontal className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {userItem.is_platform_admin ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                setConfirmDialog({
-                                  open: true,
-                                  userId: userItem.id,
-                                  userName: userItem.full_name,
-                                  action: 'revoke',
-                                })
-                              }
-                              className="text-destructive"
-                            >
-                              <ShieldOff className="mr-2 h-4 w-4" />
-                              Revoke Platform Admin
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                setConfirmDialog({
-                                  open: true,
-                                  userId: userItem.id,
-                                  userName: userItem.full_name,
-                                  action: 'grant',
-                                })
-                              }
-                            >
-                              <Shield className="mr-2 h-4 w-4" />
-                              Make Platform Admin
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -597,43 +507,15 @@ export default function UsersManager() {
         </Card>
       )}
 
-      {/* Confirmation Dialog */}
-      <AlertDialog
-        open={confirmDialog?.open}
-        onOpenChange={(open) => !open && setConfirmDialog(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {confirmDialog?.action === 'grant'
-                ? 'Grant Platform Admin Access?'
-                : 'Revoke Platform Admin Access?'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDialog?.action === 'grant' ? (
-                <>
-                  <strong>{confirmDialog?.userName}</strong> will have full access to manage all 
-                  organizations, courses, users, and platform settings.
-                </>
-              ) : (
-                <>
-                  <strong>{confirmDialog?.userName}</strong> will lose platform admin privileges 
-                  and will only have access based on their organization memberships.
-                </>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleTogglePlatformAdmin}
-              className={confirmDialog?.action === 'revoke' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
-            >
-              {confirmDialog?.action === 'grant' ? 'Grant Access' : 'Revoke Access'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* User Detail Dialog */}
+      <UserDetailDialog
+        user={selectedUser}
+        organizations={organizations}
+        currentUserId={user?.id || ''}
+        open={userDetailOpen}
+        onOpenChange={setUserDetailOpen}
+        onUserUpdated={fetchData}
+      />
     </AppLayout>
   );
 }
