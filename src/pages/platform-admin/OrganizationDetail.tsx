@@ -152,16 +152,14 @@ export default function OrganizationDetail() {
       setMembers(memberData as any);
     }
 
-    // Fetch pending invitations
+    // Fetch pending invitations using secure RPC (excludes sensitive tokens)
     const { data: inviteData } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('org_id', orgId)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+      .rpc('get_platform_invitations_safe', { p_org_id: orgId });
 
     if (inviteData) {
-      setInvitations(inviteData as Invitation[]);
+      // Filter to only pending status (RPC returns all statuses for the org)
+      const pendingInvites = inviteData.filter((inv: any) => inv.status === 'pending');
+      setInvitations(pendingInvites as Invitation[]);
     }
 
     // Fetch all users to find ones not in this org

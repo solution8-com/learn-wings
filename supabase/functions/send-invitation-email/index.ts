@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
@@ -35,6 +36,65 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Validate authorization
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid Authorization header');
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Validate user using getUser
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    
+    if (userError || !userData?.user) {
+      console.error('Failed to get user:', userError);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = userData.user.id;
+    console.log('Sending invitation email for user:', userId);
+
+    // Check if user is platform admin or org admin
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_platform_admin')
+      .eq('id', userId)
+      .single();
+
+    const isPlatformAdmin = profile?.is_platform_admin === true;
+
+    // If not platform admin, check if they're an org admin
+    if (!isPlatformAdmin) {
+      const { data: memberships } = await supabase
+        .from('org_memberships')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .eq('role', 'org_admin');
+
+      const isOrgAdmin = memberships && memberships.length > 0;
+
+      if (!isOrgAdmin) {
+        console.error('User is not authorized to send invitations:', userId);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Forbidden: Only admins can send invitations' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const { email, orgName, role, inviteLink }: InvitationEmailRequest = await req.json();
 
     // Validate required fields
@@ -42,11 +102,33 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Missing required fields: email and inviteLink are required");
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid email format");
+    }
+
+    // Validate inviteLink is from allowed domains
+    const allowedLinkDomains = [
+      'learn-wings.lovable.app',
+      'id-preview--ee335e84-7b72-46fe-bdb4-cd3d716c9247.lovable.app',
+    ];
+    try {
+      const linkUrl = new URL(inviteLink);
+      if (!allowedLinkDomains.includes(linkUrl.hostname)) {
+        console.error('Invalid invite link domain:', linkUrl.hostname);
+        throw new Error("Invalid invite link domain");
+      }
+    } catch (urlError) {
+      console.error('Invalid invite link URL:', inviteLink);
+      throw new Error("Invalid invite link format");
+    }
+
     // Determine email content based on invitation type
-    const isPlatformAdmin = role === 'platform_admin';
+    const isPlatformAdminInvite = role === 'platform_admin';
     const roleLabel = role === 'org_admin' ? 'Administrator' : role === 'platform_admin' ? 'Platform Administrator' : 'Learner';
     
-    const subject = isPlatformAdmin
+    const subject = isPlatformAdminInvite
       ? "Du er blevet inviteret som Platform Administrator på AIR Academy"
       : `Du er blevet inviteret til ${orgName} på AIR Academy`;
 
@@ -55,7 +137,7 @@ const handler = async (req: Request): Promise<Response> => {
       orgName,
       roleLabel,
       inviteLink,
-      isPlatformAdmin,
+      isPlatformAdmin: isPlatformAdminInvite,
     });
 
     const emailResponse = await resend.emails.send({

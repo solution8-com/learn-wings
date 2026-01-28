@@ -643,63 +643,6 @@ export type Database = {
       }
     }
     Views: {
-      invitations_safe: {
-        Row: {
-          created_at: string | null
-          email: string | null
-          expires_at: string | null
-          id: string | null
-          invited_by_user_id: string | null
-          is_platform_admin_invite: boolean | null
-          link_id: string | null
-          org_id: string | null
-          role: Database["public"]["Enums"]["org_role"] | null
-          status: Database["public"]["Enums"]["invitation_status"] | null
-          token: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          email?: string | null
-          expires_at?: string | null
-          id?: string | null
-          invited_by_user_id?: string | null
-          is_platform_admin_invite?: boolean | null
-          link_id?: string | null
-          org_id?: string | null
-          role?: Database["public"]["Enums"]["org_role"] | null
-          status?: Database["public"]["Enums"]["invitation_status"] | null
-          token?: never
-        }
-        Update: {
-          created_at?: string | null
-          email?: string | null
-          expires_at?: string | null
-          id?: string | null
-          invited_by_user_id?: string | null
-          is_platform_admin_invite?: boolean | null
-          link_id?: string | null
-          org_id?: string | null
-          role?: Database["public"]["Enums"]["org_role"] | null
-          status?: Database["public"]["Enums"]["invitation_status"] | null
-          token?: never
-        }
-        Relationships: [
-          {
-            foreignKeyName: "invitations_invited_by_user_id_fkey"
-            columns: ["invited_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invitations_org_id_fkey"
-            columns: ["org_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       quiz_options_public: {
         Row: {
           id: string | null
@@ -763,6 +706,21 @@ export type Database = {
       }
       get_org_invitations_safe: {
         Args: { p_org_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_user_id: string
+          is_platform_admin_invite: boolean
+          link_id: string
+          org_id: string
+          role: Database["public"]["Enums"]["org_role"]
+          status: Database["public"]["Enums"]["invitation_status"]
+        }[]
+      }
+      get_platform_invitations_safe: {
+        Args: { p_org_id?: string }
         Returns: {
           created_at: string
           email: string
