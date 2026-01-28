@@ -50,10 +50,12 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { OrgMembership, Profile, Invitation, OrgRole } from '@/lib/types';
-import { Users, Plus, MoreHorizontal, Mail, Copy, Check, Loader2, UserX, UserCog, ShieldCheck, User } from 'lucide-react';
+import { Users, Plus, MoreHorizontal, Mail, Copy, Check, Loader2, UserX, UserCog, ShieldCheck, User, FileSpreadsheet, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { getInviteLink } from '@/lib/config';
+import { BulkInviteDialog } from '@/components/org-admin/BulkInviteDialog';
+import { EnrollUserDialog } from '@/components/org-admin/EnrollUserDialog';
 
 const inviteSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -77,6 +79,8 @@ export default function OrgUsers() {
     newRole: OrgRole;
   } | null>(null);
   const [updatingRole, setUpdatingRole] = useState<string | null>(null);
+  const [bulkInviteOpen, setBulkInviteOpen] = useState(false);
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
 
   const fetchData = async () => {
     if (!currentOrg) {
@@ -292,7 +296,15 @@ export default function OrgUsers() {
   return (
     <AppLayout title="Team Members" breadcrumbs={[{ label: 'Team Members' }]}>
       {/* Actions */}
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setEnrollDialogOpen(true)}>
+          <GraduationCap className="mr-2 h-4 w-4" />
+          Enroll User
+        </Button>
+        <Button variant="outline" onClick={() => setBulkInviteOpen(true)}>
+          <FileSpreadsheet className="mr-2 h-4 w-4" />
+          Bulk Invite
+        </Button>
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -347,6 +359,26 @@ export default function OrgUsers() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Bulk Invite Dialog */}
+      <BulkInviteDialog
+        open={bulkInviteOpen}
+        onOpenChange={setBulkInviteOpen}
+        orgId={currentOrg.id}
+        orgName={currentOrg.name}
+        userId={user?.id || ''}
+        onSuccess={fetchData}
+      />
+
+      {/* Enroll User Dialog */}
+      <EnrollUserDialog
+        open={enrollDialogOpen}
+        onOpenChange={setEnrollDialogOpen}
+        orgId={currentOrg.id}
+        orgName={currentOrg.name}
+        members={members}
+        onSuccess={fetchData}
+      />
 
       {/* Pending Invitations */}
       {invitations.length > 0 && (
