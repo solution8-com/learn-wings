@@ -22,7 +22,7 @@ import {
 import { FileUpload } from '@/components/ui/file-upload';
 import { supabase } from '@/integrations/supabase/client';
 import { Course, CourseModule, Lesson, CourseLevel, LessonType } from '@/lib/types';
-import { isSharePointUrl, validateSharePointUrl } from '@/lib/sharepoint';
+import { isSharePointUrl, validateSharePointUrl, cleanSharePointUrl } from '@/lib/sharepoint';
 import { ArrowLeft, Plus, Loader2, GripVertical, Trash2, Video, FileText, HelpCircle, Save, Pencil, Link } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
@@ -200,9 +200,12 @@ export default function CourseEditor() {
   const handleSaveLesson = async () => {
     if (!lessonModuleId || !lessonTitle.trim()) return;
     
-    // Validate SharePoint URL if using that source
+    // Clean and validate SharePoint URL if using that source
+    let cleanedVideoUrl: string | null = null;
     if (lessonType === 'video' && lessonVideoSource === 'sharepoint' && lessonVideoUrl) {
-      const validation = validateSharePointUrl(lessonVideoUrl);
+      // Clean the URL (removes any accidentally pasted HTML attributes)
+      cleanedVideoUrl = cleanSharePointUrl(lessonVideoUrl);
+      const validation = validateSharePointUrl(cleanedVideoUrl);
       if (!validation.valid) {
         toast({ title: 'Invalid SharePoint URL', description: validation.error, variant: 'destructive' });
         return;
@@ -218,7 +221,7 @@ export default function CourseEditor() {
       content_text: lessonContent || null,
       duration_minutes: lessonDuration,
       video_storage_path: lessonType === 'video' && lessonVideoSource === 'upload' ? lessonVideoPath : null,
-      video_url: lessonType === 'video' && lessonVideoSource === 'sharepoint' ? lessonVideoUrl : null,
+      video_url: lessonType === 'video' && lessonVideoSource === 'sharepoint' ? cleanedVideoUrl : null,
       document_storage_path: lessonType === 'document' ? lessonDocPath : null,
     };
 
