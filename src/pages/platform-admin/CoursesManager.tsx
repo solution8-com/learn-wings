@@ -32,7 +32,7 @@ import { FileUpload } from '@/components/ui/file-upload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Course, CourseLevel, Organization, OrgCourseAccess } from '@/lib/types';
-import { BookOpen, Plus, Loader2, Trash2, Building2, ShieldCheck } from 'lucide-react';
+import { BookOpen, Plus, Loader2, Trash2, Building2, ShieldCheck, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CoursesManager() {
@@ -65,6 +65,7 @@ export default function CoursesManager() {
   // Course Access state
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [accessRecords, setAccessRecords] = useState<OrgCourseAccess[]>([]);
+  const [orgSearchQuery, setOrgSearchQuery] = useState('');
   const [selectedOrg, setSelectedOrg] = useState<string>('all');
   const [updating, setUpdating] = useState<string | null>(null);
 
@@ -261,7 +262,11 @@ export default function CoursesManager() {
     return matchesSearch && matchesLevel && matchesStatus;
   });
 
-  const filteredOrgs = selectedOrg === 'all' ? orgs : orgs.filter((o) => o.id === selectedOrg);
+  const filteredOrgs = orgs.filter((o) => {
+    const matchesSelection = selectedOrg === 'all' || o.id === selectedOrg;
+    const matchesSearch = orgSearchQuery === '' || o.name.toLowerCase().includes(orgSearchQuery.toLowerCase());
+    return matchesSelection && matchesSearch;
+  });
   const publishedCourses = courses.filter((c) => c.is_published);
 
   if (loading) {
@@ -412,24 +417,32 @@ export default function CoursesManager() {
           </Card>
 
           {/* Filters */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search organizations..."
+                value={orgSearchQuery}
+                onChange={(e) => setOrgSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Filter by Organization:</span>
+              <Select value={selectedOrg} onValueChange={setSelectedOrg}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All Organizations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Organizations</SelectItem>
+                  {orgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={selectedOrg} onValueChange={setSelectedOrg}>
-              <SelectTrigger className="w-[250px]">
-                <SelectValue placeholder="All Organizations" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Organizations</SelectItem>
-                {orgs.map((org) => (
-                  <SelectItem key={org.id} value={org.id}>
-                    {org.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Access Matrix */}
