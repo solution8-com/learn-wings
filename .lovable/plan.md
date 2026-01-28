@@ -1,138 +1,190 @@
 
 
-# SharePoint Video Support for Lessons
+# Azure Blob Storage Integration for Video Uploads
 
-## Overview
+## Oversigt
 
-This plan adds SharePoint video embedding support for video lessons, allowing you to link SharePoint-hosted videos instead of uploading files directly.
-
----
-
-## How It Works
-
-### For Platform Admins (Creating/Editing Lessons)
-
-When adding or editing a video lesson, you'll see two options:
-
-1. **Upload Video** - The existing file upload (for files under 20MB)
-2. **SharePoint URL** - Paste a SharePoint video link
-
-### For Learners (Viewing Lessons)
-
-The video player will display SharePoint videos in an embedded iframe. The experience is seamless - learners simply watch the video within the lesson.
+Denne plan tilføjer Azure Blob Storage som video-storage løsning, hvilket fjerner den nuværende 20MB filstørrelses-begrænsning og giver mulighed for at uploade videoer af enhver størrelse.
 
 ---
 
-## SharePoint Setup Guide
+## Sådan fungerer det
 
-To use SharePoint videos, you'll need to generate a shareable link:
+### For Platform Admins (Upload af videoer)
 
-1. Navigate to your video in SharePoint
-2. Click **Share** then select **Anyone with the link** or **People in your organization**
-3. Click **Copy link** (the standard share URL works)
-4. Optionally, use the **Embed** option for a direct embed URL
-5. Paste either URL into the lesson editor
+1. I lesson editoren vælges "Video" som lesson type
+2. En ny `AzureVideoUpload` komponent vises med drag-and-drop eller klik-til-upload
+3. Filen uploades direkte til Azure Blob Storage via en pre-signed URL (SAS token)
+4. Upload-progress vises i real-time
+5. Når upload er færdig, gemmes blob-stien i databasen
 
-The system accepts:
-- Share links: `https://yourcompany.sharepoint.com/:v:/s/...`
-- Embed URLs: `https://yourcompany.sharepoint.com/.../_layouts/15/embed.aspx?...`
+### For Learners (Afspilning)
+
+Videoen streames direkte fra Azure Blob Storage via en tidsbegrænset SAS URL, som genereres on-demand når lektionen indlæses.
 
 ---
 
-## Changes Summary
+## Opsætning i Azure Portal
+
+Før implementeringen kan bruges, skal du oprette følgende i Azure:
+
+| Ressource | Beskrivelse |
+|-----------|-------------|
+| **Storage Account** | Opret en ny eller brug eksisterende storage account |
+| **Container** | Opret en container kaldet `lms-videos` med **Private** access level |
+| **Access Key** | Find storage account name og access key under "Access keys" |
+
+---
+
+## Ændringsoversigt
 
 ### Database
 
-| Change | Description |
-|--------|-------------|
-| Add `video_url` column to `lessons` table | Stores external SharePoint video URLs (nullable text) |
+| Ændring | Beskrivelse |
+|---------|-------------|
+| Tilføj `azure_blob_path` kolonne til `lessons` | Gemmer blob-stien til Azure-hostede videoer (nullable text) |
 
-### Files Changed/Created
+### Nye/Ændrede Filer
 
-| File | Changes |
-|------|---------|
-| `src/lib/sharepoint.ts` | **New** - SharePoint URL validation and embed transformation |
-| `src/lib/types.ts` | Add `video_url` field to Lesson interface |
-| `src/pages/platform-admin/CourseEditor.tsx` | Add video source toggle and SharePoint URL input |
-| `src/pages/learner/CoursePlayer.tsx` | Add SharePoint iframe rendering for external videos |
+| Fil | Ændringer |
+|-----|-----------|
+| `supabase/functions/azure-upload-url/index.ts` | **Ny** - Edge function der genererer SAS upload URL |
+| `supabase/functions/azure-view-url/index.ts` | **Ny** - Edge function der genererer SAS view URL |
+| `src/components/ui/azure-video-upload.tsx` | **Ny** - Upload komponent med progress tracking |
+| `src/lib/types.ts` | Tilføj `azure_blob_path` felt til Lesson interface |
+| `src/pages/platform-admin/CourseEditor.tsx` | Brug AzureVideoUpload for video lessons |
+| `src/pages/learner/CoursePlayer.tsx` | Hent Azure signed URL når lesson har azure_blob_path |
+
+### Secrets (krævet)
+
+| Secret Navn | Beskrivelse |
+|-------------|-------------|
+| `AZURE_STORAGE_ACCOUNT_NAME` | Dit Azure storage account navn |
+| `AZURE_STORAGE_ACCOUNT_KEY` | Din Azure storage access key |
+| `AZURE_STORAGE_CONTAINER_NAME` | Container navn (f.eks. `lms-videos`) |
 
 ---
 
-## Technical Details
+## Tekniske Detaljer
 
-### SharePoint URL Transformation
-
-The system detects SharePoint URLs and transforms them to embeddable format:
+### Upload Flow
 
 ```text
-Input patterns:
-  - https://company.sharepoint.com/:v:/s/SiteName/...
-  - https://company.sharepoint.com/:v:/r/sites/...
-  - https://company-my.sharepoint.com/:v:/g/personal/...
-
-Output:
-  - Transforms share links to embed.aspx URLs
-  - Preserves action=embedview parameter for proper embedding
++------------------+     +-------------------------+     +-------------------+
+| CourseEditor     | --> | azure-upload-url        | --> | Azure Blob        |
+| (Admin browser)  |     | (Edge Function)         |     | Storage           |
++------------------+     +-------------------------+     +-------------------+
+        |                          |                              |
+        | 1. Request SAS URL       |                              |
+        |------------------------->|                              |
+        |                          | 2. Generate SAS token        |
+        |                          |----------------------------->|
+        |    3. Return upload URL  |                              |
+        |<-------------------------|                              |
+        |                                                         |
+        | 4. Direct upload to Azure (PUT with SAS)                |
+        |-------------------------------------------------------->|
+        |                                                         |
+        | 5. Store blob path in database                          |
+        |                                                         |
 ```
 
-### Video Rendering Priority
-
-When displaying a video lesson:
-
-1. If `video_url` exists (SharePoint) - render iframe embed
-2. Else if `video_storage_path` exists - use signed URL video player
-3. Else - show placeholder
-
-### Lesson Editor UI
-
-For video lesson type:
+### View Flow
 
 ```text
-+---------------------------------------------+
-|  Video Source                               |
-|  ( ) Upload Video    (x) SharePoint URL     |
-+---------------------------------------------+
-|  [When SharePoint URL selected]             |
-|                                             |
-|  SharePoint Video URL                       |
-|  +---------------------------------------+  |
-|  | https://company.sharepoint.com/:v:/...   |
-|  +---------------------------------------+  |
-|  (i) Paste a SharePoint share or embed link |
-+---------------------------------------------+
++------------------+     +-------------------------+     +-------------------+
+| CoursePlayer     | --> | azure-view-url          | --> | Azure Blob        |
+| (Learner browser)|     | (Edge Function)         |     | Storage           |
++------------------+     +-------------------------+     +-------------------+
+        |                          |                              |
+        | 1. Request view URL      |                              |
+        |   (with blob_path)       |                              |
+        |------------------------->|                              |
+        |                          | 2. Validate user access      |
+        |                          | 3. Generate read-only SAS    |
+        |    4. Return signed URL  |                              |
+        |<-------------------------|                              |
+        |                                                         |
+        | 5. Stream video directly from Azure                     |
+        |-------------------------------------------------------->|
 ```
 
-### SharePoint Embed Component
+### SAS Token Parametre
 
-A responsive iframe with:
-- Sandboxed execution (`allow-scripts allow-same-origin`)
-- Aspect ratio container (16:9)
-- Loading state handling
-- Error boundary for failed loads
+| Parameter | Upload | View |
+|-----------|--------|------|
+| Permission | `write`, `create` | `read` |
+| Expiry | 30 minutter | 2 timer |
+| IP restriction | Nej | Nej |
+| HTTPS only | Ja | Ja |
 
-### Security Considerations
+### Edge Function: azure-upload-url
 
-| Concern | Mitigation |
-|---------|------------|
-| Invalid URLs | Validate URL matches `*.sharepoint.com` domain pattern |
-| XSS via iframe | Use `sandbox` attribute on iframes |
-| Access control | SharePoint handles permissions - video only plays if user/link has access |
+```typescript
+// Pseudocode for SAS generation
+const sasToken = generateBlobSASQueryParameters({
+  containerName: CONTAINER_NAME,
+  blobName: uniqueFileName,
+  permissions: BlobSASPermissions.parse("cw"), // create, write
+  expiresOn: new Date(Date.now() + 30 * 60 * 1000), // 30 min
+  protocol: SASProtocol.Https,
+}, sharedKeyCredential);
+
+return {
+  uploadUrl: `https://${ACCOUNT_NAME}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}?${sasToken}`,
+  blobPath: blobName
+};
+```
+
+### AzureVideoUpload Komponent
+
+```typescript
+// Nøglefunktioner
+- Anmod om upload-URL fra edge function
+- Upload direkte til Azure via PUT request
+- Track upload progress via XMLHttpRequest
+- Returnér blob path til parent component
+- Vis preview efter upload (via signed view URL)
+```
+
+### Sikkerhed
+
+| Bekymring | Løsning |
+|-----------|---------|
+| Uautoriseret upload | Edge function validerer JWT (kun platform admins) |
+| Uautoriseret view | Edge function validerer at bruger har adgang til kurset |
+| Token leakage | Korte expiry tider (30 min upload, 2 timer view) |
+| CORS | Azure container konfigureres med tilladt origin |
 
 ---
 
-## Limitations
+## Implementeringsrækkefølge
 
-- **Authentication**: If your SharePoint videos require sign-in, learners will see a Microsoft login prompt within the iframe. For seamless playback, use "Anyone with the link" sharing.
-- **Completion tracking**: Video watch progress isn't tracked - completion is based on clicking "Mark as Complete"
-- **Offline access**: SharePoint videos require internet connectivity
+1. **Database migration** - Tilføj `azure_blob_path` kolonne til lessons table
+2. **Secrets setup** - Tilføj Azure credentials som Supabase secrets
+3. **Edge function: azure-upload-url** - Generér SAS tokens til upload
+4. **Edge function: azure-view-url** - Generér SAS tokens til visning
+5. **AzureVideoUpload komponent** - Upload UI med progress
+6. **Opdater Lesson type** - Tilføj `azure_blob_path` til TypeScript interface
+7. **Opdater CourseEditor** - Brug AzureVideoUpload for video lessons
+8. **Opdater CoursePlayer** - Hent og brug Azure signed URLs
 
 ---
 
-## Implementation Steps
+## Begrænsninger
 
-1. **Database migration** - Add `video_url` column to lessons table
-2. **Create SharePoint utilities** - URL validation and embed transformation helper
-3. **Update Lesson type** - Add `video_url` to TypeScript interface
-4. **Update CourseEditor** - Add video source toggle with SharePoint URL input
-5. **Update CoursePlayer** - Render SharePoint embeds when `video_url` is present
+- **CORS-opsætning kræves**: Azure container skal konfigureres til at tillade requests fra din applikations domæne
+- **Ingen automatisk transcoding**: Videoer afspilles som uploadet - overvej format-krav (MP4 H.264 anbefales)
+- **Ingen CDN**: For global performance kan Azure CDN tilføjes senere
+
+---
+
+## Azure Portal CORS Opsætning
+
+I Azure Storage Account under "Resource sharing (CORS)":
+
+| Allowed Origins | Allowed Methods | Allowed Headers | Exposed Headers | Max Age |
+|-----------------|-----------------|-----------------|-----------------|---------|
+| `https://learn-wings.lovable.app` | `GET, PUT, OPTIONS` | `*` | `*` | `3600` |
+| `https://*.lovable.app` | `GET, PUT, OPTIONS` | `*` | `*` | `3600` |
 
