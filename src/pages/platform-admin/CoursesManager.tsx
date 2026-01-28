@@ -13,13 +13,16 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { FileUpload } from '@/components/ui/file-upload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Course, CourseLevel } from '@/lib/types';
-import { BookOpen, Plus, Loader2 } from 'lucide-react';
+import { BookOpen, Plus, Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function CoursesManager() {
@@ -34,6 +37,11 @@ export default function CoursesManager() {
   const [level, setLevel] = useState<CourseLevel>('basic');
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  
+  // Delete state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchCourses = async () => {
     const { data } = await supabase.from('courses').select('*').order('created_at', { ascending: false });
@@ -62,6 +70,26 @@ export default function CoursesManager() {
   const togglePublish = async (course: Course) => {
     await supabase.from('courses').update({ is_published: !course.is_published }).eq('id', course.id);
     fetchCourses();
+  };
+
+  const openDeleteDialog = (course: Course) => {
+    setCourseToDelete(course);
+    setDeleteOpen(true);
+  };
+
+  const handleDeleteCourse = async () => {
+    if (!courseToDelete) return;
+    setDeleting(true);
+    const { error } = await supabase.from('courses').delete().eq('id', courseToDelete.id);
+    if (error) {
+      toast({ title: 'Failed to delete course', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Course deleted' });
+      setDeleteOpen(false);
+      setCourseToDelete(null);
+      fetchCourses();
+    }
+    setDeleting(false);
   };
 
   const levelColors = { basic: 'bg-green-100 text-green-800', intermediate: 'bg-yellow-100 text-yellow-800', advanced: 'bg-red-100 text-red-800' };
@@ -127,12 +155,51 @@ export default function CoursesManager() {
                     <Switch checked={course.is_published} onCheckedChange={() => togglePublish(course)} />
                     <span className="text-sm">{course.is_published ? 'Published' : 'Draft'}</span>
                   </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    onClick={(e) => { e.stopPropagation(); openDeleteDialog(course); }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Course?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This will permanently delete <strong>"{courseToDelete?.title}"</strong> and all associated data including:
+              </p>
+              <ul className="list-disc list-inside text-sm">
+                <li>All modules and lessons</li>
+                <li>All learner enrollments and progress</li>
+                <li>All quiz attempts and reviews</li>
+              </ul>
+              <p className="font-medium">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCourse}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }

@@ -11,6 +11,9 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
@@ -57,6 +60,10 @@ export default function CourseEditor() {
   const [lessonVideoPath, setLessonVideoPath] = useState<string | null>(null);
   const [lessonDocPath, setLessonDocPath] = useState<string | null>(null);
   const [savingLesson, setSavingLesson] = useState(false);
+
+  // Delete course state
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchCourse = async () => {
     if (!courseId) return;
@@ -223,6 +230,19 @@ export default function CourseEditor() {
     }
   };
 
+  const handleDeleteCourse = async () => {
+    if (!courseId) return;
+    setDeleting(true);
+    const { error } = await supabase.from('courses').delete().eq('id', courseId);
+    if (error) {
+      toast({ title: 'Failed to delete course', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Course deleted' });
+      navigate('/app/admin/courses');
+    }
+    setDeleting(false);
+  };
+
   const lessonTypeIcon = (type: LessonType) => {
     switch (type) {
       case 'video': return <Video className="h-4 w-4" />;
@@ -308,7 +328,10 @@ export default function CourseEditor() {
             <Label>Description</Label>
             <Textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} />
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete Course
+            </Button>
             <Button onClick={handleSaveCourse} disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" /> Save Course
@@ -316,6 +339,37 @@ export default function CourseEditor() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Course Confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Course?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This will permanently delete <strong>"{course.title}"</strong> and all associated data including:
+              </p>
+              <ul className="list-disc list-inside text-sm">
+                <li>All modules and lessons</li>
+                <li>All learner enrollments and progress</li>
+                <li>All quiz attempts and reviews</li>
+              </ul>
+              <p className="font-medium">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCourse}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Course
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modules & Lessons */}
       <Card>
