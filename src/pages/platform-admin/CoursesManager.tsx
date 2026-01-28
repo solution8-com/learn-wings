@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { SearchFilter, FilterConfig } from '@/components/ui/search-filter';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -31,6 +32,9 @@ export default function CoursesManager() {
   const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [levelFilter, setLevelFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -94,11 +98,68 @@ export default function CoursesManager() {
 
   const levelColors = { basic: 'bg-green-100 text-green-800', intermediate: 'bg-yellow-100 text-yellow-800', advanced: 'bg-red-100 text-red-800' };
 
+  const courseFilters: FilterConfig[] = [
+    {
+      key: 'level',
+      label: 'Level',
+      options: [
+        { value: 'basic', label: 'Basic' },
+        { value: 'intermediate', label: 'Intermediate' },
+        { value: 'advanced', label: 'Advanced' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { value: 'published', label: 'Published' },
+        { value: 'draft', label: 'Draft' },
+      ],
+    },
+  ];
+
+  const filterValues = { level: levelFilter, status: statusFilter };
+
+  const handleFilterChange = (key: string, value: string) => {
+    if (key === 'level') setLevelFilter(value);
+    if (key === 'status') setStatusFilter(value);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setLevelFilter('all');
+    setStatusFilter('all');
+  };
+
+  const filteredCourses = courses.filter(course => {
+    const matchesSearch = searchQuery === '' ||
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.description?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesLevel = levelFilter === 'all' || course.level === levelFilter;
+
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'published' && course.is_published) ||
+      (statusFilter === 'draft' && !course.is_published);
+
+    return matchesSearch && matchesLevel && matchesStatus;
+  });
+
   if (loading) return <AppLayout title="Courses"><div className="flex h-64 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-accent" /></div></AppLayout>;
 
   return (
     <AppLayout title="Course Manager" breadcrumbs={[{ label: 'Courses' }]}>
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <SearchFilter
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search courses..."
+          filters={courseFilters}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+          className="flex-1"
+        />
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />Create Course</Button></DialogTrigger>
           <DialogContent>
@@ -129,11 +190,16 @@ export default function CoursesManager() {
         </Dialog>
       </div>
 
-      {courses.length === 0 ? (
-        <EmptyState icon={<BookOpen className="h-6 w-6" />} title="No courses yet" description="Create your first course." action={<Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Create Course</Button>} />
+      {filteredCourses.length === 0 ? (
+        <EmptyState 
+          icon={<BookOpen className="h-6 w-6" />} 
+          title={searchQuery || levelFilter !== 'all' || statusFilter !== 'all' ? "No matching courses" : "No courses yet"} 
+          description={searchQuery || levelFilter !== 'all' || statusFilter !== 'all' ? "Try adjusting your filters." : "Create your first course."} 
+          action={!searchQuery && levelFilter === 'all' && statusFilter === 'all' ? <Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Create Course</Button> : undefined} 
+        />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {courses.map((course) => (
+          {filteredCourses.map((course) => (
             <Card
               key={course.id}
               className="cursor-pointer transition-shadow hover:shadow-md"

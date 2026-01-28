@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SearchFilter, FilterConfig } from '@/components/ui/search-filter';
 import {
   Table,
   TableBody,
@@ -33,7 +34,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Profile, OrgMembership, Organization, OrgRole, Invitation } from '@/lib/types';
-import { Users, Shield, Search, Loader2, Mail, Copy, Check, UserPlus } from 'lucide-react';
+import { Users, Shield, Loader2, Mail, Copy, Check, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { getInviteLink } from '@/lib/config';
@@ -63,6 +64,8 @@ export default function UsersManager() {
   const [invitations, setInvitations] = useState<(Invitation & { organization?: Organization })[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [orgFilter, setOrgFilter] = useState('all');
   
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -260,9 +263,57 @@ export default function UsersManager() {
     platform_admin: 'bg-amber-100 text-amber-800',
   };
 
-  const filteredUsers = users.filter((u) =>
-    u.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const userFilters: FilterConfig[] = [
+    {
+      key: 'role',
+      label: 'Role',
+      options: [
+        { value: 'platform_admin', label: 'Platform Admin' },
+        { value: 'org_admin', label: 'Org Admin' },
+        { value: 'learner', label: 'Learner' },
+      ],
+    },
+    {
+      key: 'org',
+      label: 'Organization',
+      options: organizations.map(org => ({ value: org.id, label: org.name })),
+    },
+  ];
+
+  const filterValues = { role: roleFilter, org: orgFilter };
+
+  const handleFilterChange = (key: string, value: string) => {
+    if (key === 'role') setRoleFilter(value);
+    if (key === 'org') setOrgFilter(value);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setRoleFilter('all');
+    setOrgFilter('all');
+  };
+
+  const filteredUsers = users.filter((u) => {
+    // Search filter
+    const matchesSearch = searchQuery === '' ||
+      u.full_name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Role filter
+    let matchesRole = true;
+    if (roleFilter === 'platform_admin') {
+      matchesRole = u.is_platform_admin;
+    } else if (roleFilter === 'org_admin') {
+      matchesRole = u.memberships.some(m => m.role === 'org_admin');
+    } else if (roleFilter === 'learner') {
+      matchesRole = !u.is_platform_admin && u.memberships.every(m => m.role === 'learner');
+    }
+
+    // Organization filter
+    const matchesOrg = orgFilter === 'all' ||
+      u.memberships.some(m => m.org_id === orgFilter);
+
+    return matchesSearch && matchesRole && matchesOrg;
+  });
 
   if (loading) {
     return (
@@ -277,16 +328,17 @@ export default function UsersManager() {
   return (
     <AppLayout title="Platform Users" breadcrumbs={[{ label: 'Users' }]}>
       {/* Header with search and invite */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search users..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <SearchFilter
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search users..."
+          filters={userFilters}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+          className="flex-1"
+        />
 
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>

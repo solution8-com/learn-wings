@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SearchFilter, FilterConfig } from '@/components/ui/search-filter';
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,9 @@ export default function OrgUsers() {
   const [members, setMembers] = useState<(OrgMembership & { profile: Profile })[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<OrgRole>('learner');
@@ -271,6 +275,52 @@ export default function OrgUsers() {
     disabled: 'bg-red-100 text-red-800',
   };
 
+  const memberFilters: FilterConfig[] = [
+    {
+      key: 'role',
+      label: 'Role',
+      options: [
+        { value: 'org_admin', label: 'Admin' },
+        { value: 'learner', label: 'Learner' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { value: 'active', label: 'Active' },
+        { value: 'disabled', label: 'Disabled' },
+      ],
+    },
+  ];
+
+  const filterValues = { role: roleFilter, status: statusFilter };
+
+  const handleFilterChange = (key: string, value: string) => {
+    if (key === 'role') setRoleFilter(value);
+    if (key === 'status') setStatusFilter(value);
+  };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setRoleFilter('all');
+    setStatusFilter('all');
+  };
+
+  const filteredMembers = members.filter(member => {
+    // Search filter
+    const matchesSearch = searchQuery === '' ||
+      member.profile?.full_name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Role filter
+    const matchesRole = roleFilter === 'all' || member.role === roleFilter;
+
+    // Status filter
+    const matchesStatus = statusFilter === 'all' || member.status === statusFilter;
+
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
   if (loading) {
     return (
       <AppLayout title="Team Members" breadcrumbs={[{ label: 'Team Members' }]}>
@@ -295,16 +345,27 @@ export default function OrgUsers() {
 
   return (
     <AppLayout title="Team Members" breadcrumbs={[{ label: 'Team Members' }]}>
-      {/* Actions */}
-      <div className="mb-6 flex justify-end gap-2">
-        <Button variant="outline" onClick={() => setEnrollDialogOpen(true)}>
-          <GraduationCap className="mr-2 h-4 w-4" />
-          Enroll User
-        </Button>
-        <Button variant="outline" onClick={() => setBulkInviteOpen(true)}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Bulk Invite
-        </Button>
+      {/* Search and Actions */}
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <SearchFilter
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search members..."
+          filters={memberFilters}
+          filterValues={filterValues}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+          className="flex-1"
+        />
+        <div className="flex gap-2 shrink-0">
+          <Button variant="outline" onClick={() => setEnrollDialogOpen(true)}>
+            <GraduationCap className="mr-2 h-4 w-4" />
+            Enroll User
+          </Button>
+          <Button variant="outline" onClick={() => setBulkInviteOpen(true)}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Bulk Invite
+          </Button>
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -358,6 +419,7 @@ export default function OrgUsers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Bulk Invite Dialog */}
@@ -433,16 +495,20 @@ export default function OrgUsers() {
       )}
 
       {/* Members Table */}
-      {members.length === 0 ? (
+      {filteredMembers.length === 0 ? (
         <EmptyState
           icon={<Users className="h-6 w-6" />}
-          title="No team members yet"
-          description="Invite colleagues to join your organization."
+          title={searchQuery || roleFilter !== 'all' || statusFilter !== 'all' ? "No matching members" : "No team members yet"}
+          description={searchQuery || roleFilter !== 'all' || statusFilter !== 'all' 
+            ? "Try adjusting your filters." 
+            : "Invite colleagues to join your organization."}
           action={
-            <Button onClick={() => setInviteOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Invite Member
-            </Button>
+            !searchQuery && roleFilter === 'all' && statusFilter === 'all' ? (
+              <Button onClick={() => setInviteOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Invite Member
+              </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -458,7 +524,7 @@ export default function OrgUsers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members.map((member) => (
+              {filteredMembers.map((member) => (
                 <TableRow key={member.id}>
                   <TableCell>
                     <div>
