@@ -73,8 +73,22 @@ export function getSharePointEmbedUrl(url: string): string | null {
   try {
     const parsed = new URL(cleanedUrl);
     
-    // If already an embed URL, return as-is (don't add extra params that might break auth)
+    // If already an embed URL, clean up auth-forcing parameters
     if (parsed.pathname.includes('/embed.aspx') || parsed.pathname.includes('/_layouts/15/embed.aspx')) {
+      // Check if embed param exists and contains ust:true (forces auth)
+      const embedParam = parsed.searchParams.get('embed');
+      if (embedParam) {
+        try {
+          const embedJson = JSON.parse(embedParam);
+          // Remove user session token requirement for anonymous viewing
+          if (embedJson.ust === true) {
+            delete embedJson.ust;
+            parsed.searchParams.set('embed', JSON.stringify(embedJson));
+          }
+        } catch {
+          // If parsing fails, continue with original URL
+        }
+      }
       return parsed.toString();
     }
     
