@@ -130,18 +130,29 @@ export function getSharePointEmbedUrl(url: string): string | null {
     
     // If already an embed URL, clean up auth-forcing parameters
     if (parsed.pathname.includes('/embed.aspx') || parsed.pathname.includes('/_layouts/15/embed.aspx')) {
-      // Check if embed param exists and contains ust:true (forces auth)
+      // The 'embed' param contains JSON with ust:true that forces authentication
+      // We must remove this to allow anonymous viewing with "Anyone with the link" permissions
       const embedParam = parsed.searchParams.get('embed');
       if (embedParam) {
         try {
           const embedJson = JSON.parse(embedParam);
           // Remove user session token requirement for anonymous viewing
-          if (embedJson.ust === true) {
+          // When ust:true is present, SharePoint requires Microsoft login even if
+          // the file is shared with "Anyone with the link"
+          if ('ust' in embedJson) {
             delete embedJson.ust;
-            parsed.searchParams.set('embed', JSON.stringify(embedJson));
+            // If only 'hv' remains and it's just metadata, we can keep it or remove the whole param
+            if (Object.keys(embedJson).length === 0) {
+              parsed.searchParams.delete('embed');
+            } else {
+              parsed.searchParams.set('embed', JSON.stringify(embedJson));
+            }
           }
         } catch {
-          // If parsing fails, continue with original URL
+          // If parsing fails, try to remove the embed param entirely as fallback
+          // This is aggressive but ensures the video can play
+          console.warn('Failed to parse embed param, removing it for anonymous access');
+          parsed.searchParams.delete('embed');
         }
       }
       return parsed.toString();
