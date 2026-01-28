@@ -40,12 +40,22 @@ async function generateDeleteSasToken(
   const canonicalResource = `/blob/${accountName}/${containerName}/${blobName}`;
   
   const stringToSign = [
-    permissions,
-    startTime,
-    expiryTime,
-    canonicalResource,
-    '', '', 'https', signedVersion, signedResource,
-    '', '', '', '', '', '',
+    permissions,        // signedPermissions
+    startTime,          // signedStart
+    expiryTime,         // signedExpiry
+    canonicalResource,  // canonicalizedResource
+    '',                 // signedIdentifier
+    '',                 // signedIP
+    'https',            // signedProtocol
+    signedVersion,      // signedVersion
+    signedResource,     // signedResource
+    '',                 // signedSnapshotTime
+    '',                 // signedEncryptionScope
+    '',                 // rscc (cache-control)
+    '',                 // rscd (content-disposition)
+    '',                 // rsce (content-encoding)
+    '',                 // rscl (content-language)
+    '',                 // rsct (content-type)
   ].join('\n');
   
   const keyBytes = Uint8Array.from(atob(accountKey), c => c.charCodeAt(0));
