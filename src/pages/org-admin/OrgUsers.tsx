@@ -55,6 +55,7 @@ import { Users, Plus, MoreHorizontal, Mail, Copy, Check, Loader2, UserX, UserCog
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { getInviteLink } from '@/lib/config';
+import { sendInvitationEmail } from '@/lib/sendInvitationEmail';
 import { BulkInviteDialog } from '@/components/org-admin/BulkInviteDialog';
 import { EnrollUserDialog } from '@/components/org-admin/EnrollUserDialog';
 
@@ -163,7 +164,7 @@ export default function OrgUsers() {
         role: inviteRole,
         invited_by_user_id: user.id,
       })
-      .select()
+      .select('id')
       .single();
 
     if (error) {
@@ -173,9 +174,28 @@ export default function OrgUsers() {
         variant: 'destructive',
       });
     } else {
+      // Send invitation email
+      let emailSent = false;
+      if (invitation?.id) {
+        const { data: linkId } = await supabase
+          .rpc('get_invitation_link_id', { invitation_id: invitation.id });
+        
+        if (linkId) {
+          const emailResult = await sendInvitationEmail({
+            email: inviteEmail,
+            orgName: currentOrg.name,
+            role: inviteRole,
+            linkId,
+          });
+          emailSent = emailResult.success;
+        }
+      }
+      
       toast({
         title: 'Invitation created!',
-        description: 'Copy the invite link to share with the user.',
+        description: emailSent 
+          ? 'Invitation email sent successfully.' 
+          : 'Copy the invite link to share with the user.',
       });
       setInviteOpen(false);
       setInviteEmail('');
