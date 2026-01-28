@@ -1,9 +1,22 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// Allowed origins for CORS
+const allowedOrigins = [
+  'https://learn-wings.lovable.app',
+  'https://id-preview--ee335e84-7b72-46fe-bdb4-cd3d716c9247.lovable.app',
+  'https://ee335e84-7b72-46fe-bdb4-cd3d716c9247.lovableproject.com',
+  'https://ai-uddannelse.dk',
+];
+
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('origin') || '';
+  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+}
 
 // Generate Azure SAS token for blob read access
 function generateReadSasToken(
@@ -82,6 +95,8 @@ function generateReadSasToken(
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+  
   console.log('azure-view-url: Request received');
   
   // Handle CORS preflight
@@ -197,7 +212,7 @@ Deno.serve(async (req) => {
     console.error('Error generating view URL:', error);
     return new Response(JSON.stringify({ error: 'Failed to generate view URL' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });
   }
 });
