@@ -364,16 +364,14 @@ export default function CoursePlayer() {
       finished_at: new Date().toISOString(),
     });
 
-    if (passed) {
-      // Mark lesson as completed
-      await handleCompleteLesson();
-    } else {
+    if (!passed) {
       toast({
         title: 'Quiz not passed',
         description: `You scored ${score}%. You need ${quiz.passing_score}% to pass. Try again!`,
         variant: 'destructive',
       });
     }
+    // If passed, user will see success UI and can click "Mark as Complete" manually
   };
 
   const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
