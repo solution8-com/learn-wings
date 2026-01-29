@@ -23,10 +23,10 @@ import { FileUpload } from '@/components/ui/file-upload';
 import { AzureVideoUpload } from '@/components/ui/azure-video-upload';
 import { AzureDocumentUpload } from '@/components/ui/azure-document-upload';
 import { QuizEditorDialog } from '@/components/platform-admin/QuizEditorDialog';
-import { QuizPreviewDialog } from '@/components/platform-admin/QuizPreviewDialog';
+
 import { supabase } from '@/integrations/supabase/client';
 import { Course, CourseModule, Lesson, CourseLevel, LessonType } from '@/lib/types';
-import { ArrowLeft, Plus, Loader2, GripVertical, Trash2, Video, FileText, HelpCircle, Save, Pencil, Settings, Play, Eye } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, GripVertical, Trash2, Video, FileText, HelpCircle, Save, Pencil, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 
@@ -75,14 +75,6 @@ export default function CourseEditor() {
   const [quizLessonId, setQuizLessonId] = useState<string | null>(null);
   const [quizLessonTitle, setQuizLessonTitle] = useState('');
 
-  // Preview dialog state
-  const [videoPreviewOpen, setVideoPreviewOpen] = useState(false);
-  const [videoPreviewPath, setVideoPreviewPath] = useState<string | null>(null);
-  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
-  const [videoPreviewLoading, setVideoPreviewLoading] = useState(false);
-  const [quizPreviewOpen, setQuizPreviewOpen] = useState(false);
-  const [quizPreviewLessonId, setQuizPreviewLessonId] = useState<string | null>(null);
-  const [quizPreviewTitle, setQuizPreviewTitle] = useState('');
 
   const fetchCourse = async () => {
     if (!courseId) return;
@@ -316,42 +308,6 @@ export default function CourseEditor() {
 
   const levelColors = { basic: 'bg-green-100 text-green-800', intermediate: 'bg-yellow-100 text-yellow-800', advanced: 'bg-red-100 text-red-800' };
 
-  // Video preview handler
-  const handleVideoPreview = async (azureBlobPath: string) => {
-    setVideoPreviewPath(azureBlobPath);
-    setVideoPreviewLoading(true);
-    setVideoPreviewOpen(true);
-    setVideoPreviewUrl(null);
-
-    try {
-      const { data, error } = await supabase.functions.invoke('azure-view-url', {
-        body: { blobPath: azureBlobPath },
-      });
-
-      if (error) {
-        toast({ title: 'Failed to load video preview', description: error.message, variant: 'destructive' });
-        setVideoPreviewOpen(false);
-        return;
-      }
-
-      if (data?.viewUrl) {
-        setVideoPreviewUrl(data.viewUrl);
-      }
-    } catch (err) {
-      console.error('Error loading video preview:', err);
-      toast({ title: 'Failed to load video preview', variant: 'destructive' });
-      setVideoPreviewOpen(false);
-    } finally {
-      setVideoPreviewLoading(false);
-    }
-  };
-
-  // Quiz preview handler
-  const handleQuizPreview = (lessonId: string, lessonTitle: string) => {
-    setQuizPreviewLessonId(lessonId);
-    setQuizPreviewTitle(lessonTitle);
-    setQuizPreviewOpen(true);
-  };
 
   if (loading) {
     return (
@@ -520,39 +476,19 @@ export default function CourseEditor() {
                                 <span className="text-xs text-muted-foreground">{lesson.duration_minutes} min</span>
                               )}
                             </div>
-                            {lesson.lesson_type === 'video' && lesson.azure_blob_path && (
+                            {lesson.lesson_type === 'quiz' && features.quizzes_enabled && (
                               <Button 
                                 size="sm" 
                                 variant="outline" 
-                                onClick={() => handleVideoPreview(lesson.azure_blob_path!)}
+                                onClick={() => {
+                                  setQuizLessonId(lesson.id);
+                                  setQuizLessonTitle(lesson.title);
+                                  setQuizEditorOpen(true);
+                                }}
                               >
-                                <Play className="mr-1 h-3 w-3" />
-                                Preview
+                                <Settings className="mr-1 h-3 w-3" />
+                                Edit Quiz
                               </Button>
-                            )}
-                            {lesson.lesson_type === 'quiz' && features.quizzes_enabled && (
-                              <>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => handleQuizPreview(lesson.id, lesson.title)}
-                                >
-                                  <Eye className="mr-1 h-3 w-3" />
-                                  Preview
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => {
-                                    setQuizLessonId(lesson.id);
-                                    setQuizLessonTitle(lesson.title);
-                                    setQuizEditorOpen(true);
-                                  }}
-                                >
-                                  <Settings className="mr-1 h-3 w-3" />
-                                  Edit Quiz
-                                </Button>
-                              </>
                             )}
                             <Button size="icon" variant="ghost" onClick={() => openEditLesson(lesson)}>
                               <Pencil className="h-4 w-4" />
@@ -657,29 +593,51 @@ export default function CourseEditor() {
               </>
             )}
             {lessonType === 'video' && (
-              <div className="space-y-2">
-                <Label>Video File (Azure Cloud)</Label>
-                <AzureVideoUpload
-                  value={lessonAzureBlobPath}
-                  onChange={setLessonAzureBlobPath}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Ingen filstørrelses-begrænsning. Videoer uploades direkte til Azure Cloud Storage.
-                </p>
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Label>Video File (Azure Cloud)</Label>
+                  <AzureVideoUpload
+                    value={lessonAzureBlobPath}
+                    onChange={setLessonAzureBlobPath}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ingen filstørrelses-begrænsning. Videoer uploades direkte til Azure Cloud Storage.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Content Text (optional)</Label>
+                  <Textarea
+                    value={lessonContent}
+                    onChange={(e) => setLessonContent(e.target.value)}
+                    rows={5}
+                    placeholder="Additional lesson content or description..."
+                  />
+                </div>
+              </>
             )}
             {lessonType === 'quiz' && (
-              <div className="rounded-lg border border-dashed p-4 text-center">
-                <HelpCircle className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground mb-2">
-                  {editingLesson 
-                    ? 'Save the lesson first, then use "Edit Quiz" to configure questions.'
-                    : 'Create the lesson first, then configure the quiz questions.'}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Learners will need to pass the quiz to complete this lesson.
-                </p>
-              </div>
+              <>
+                <div className="rounded-lg border border-dashed p-4 text-center">
+                  <HelpCircle className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {editingLesson 
+                      ? 'Save the lesson first, then use "Edit Quiz" to configure questions.'
+                      : 'Create the lesson first, then configure the quiz questions.'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Learners will need to pass the quiz to complete this lesson.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Content Text (optional)</Label>
+                  <Textarea
+                    value={lessonContent}
+                    onChange={(e) => setLessonContent(e.target.value)}
+                    rows={5}
+                    placeholder="Quiz instructions or additional context..."
+                  />
+                </div>
+              </>
             )}
           </div>
           <DialogFooter>
@@ -703,53 +661,6 @@ export default function CourseEditor() {
         />
       )}
 
-      {/* Video Preview Dialog */}
-      <Dialog open={videoPreviewOpen} onOpenChange={setVideoPreviewOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Video className="h-5 w-5" />
-              Video Preview
-            </DialogTitle>
-            <DialogDescription>
-              Preview how learners will see this video.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-            {videoPreviewLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : videoPreviewUrl ? (
-              <video
-                src={videoPreviewUrl}
-                controls
-                autoPlay
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-muted-foreground">Failed to load video</p>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVideoPreviewOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Quiz Preview Dialog */}
-      {quizPreviewLessonId && (
-        <QuizPreviewDialog
-          lessonId={quizPreviewLessonId}
-          lessonTitle={quizPreviewTitle}
-          open={quizPreviewOpen}
-          onOpenChange={setQuizPreviewOpen}
-        />
-      )}
     </AppLayout>
   );
 }
