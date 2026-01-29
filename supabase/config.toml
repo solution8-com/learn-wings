@@ -26,6 +26,3 @@ verify_jwt = false
 
 [functions.azure-document-upload-url]
 verify_jwt = false
-
-[functions.idea-assistant]
-verify_jwt = false
