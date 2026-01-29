@@ -567,20 +567,59 @@ export default function CoursePlayer() {
                         'rounded-lg p-6 text-center',
                         quizScore >= quiz.passing_score ? 'bg-success/10' : 'bg-destructive/10'
                       )}>
+                        {quizScore >= quiz.passing_score ? (
+                          <CheckCircle2 className="mx-auto h-12 w-12 text-success mb-3" />
+                        ) : null}
                         <div className={cn(
                           'text-4xl font-bold mb-2',
                           quizScore >= quiz.passing_score ? 'text-success' : 'text-destructive'
                         )}>
                           {quizScore}%
                         </div>
-                        <p className="text-muted-foreground">
+                        <p className={cn(
+                          'mb-4',
+                          quizScore >= quiz.passing_score ? 'text-success' : 'text-muted-foreground'
+                        )}>
                           {quizScore >= quiz.passing_score
-                            ? 'Congratulations! You passed the quiz.'
+                            ? '🎉 Congratulations! You passed the quiz!'
                             : `You need ${quiz.passing_score}% to pass. Try again!`}
                         </p>
-                        {quizScore < quiz.passing_score && (
+                        {quizScore >= quiz.passing_score ? (
+                          progress[currentLesson.id]?.status === 'completed' ? (
+                            <div className="space-y-3">
+                              <Badge variant="secondary" className="bg-success/20 text-success">
+                                <CheckCircle2 className="mr-1 h-3 w-3" />
+                                Lesson Complete
+                              </Badge>
+                              <div>
+                                <Button
+                                  onClick={() => {
+                                    const allLessons = modules.flatMap(m => m.lessons);
+                                    const currentIndex = allLessons.findIndex(l => l.id === currentLesson.id);
+                                    if (currentIndex < allLessons.length - 1) {
+                                      setCurrentLesson(allLessons[currentIndex + 1]);
+                                      setQuizSubmitted(false);
+                                      setAnswers({});
+                                    }
+                                  }}
+                                >
+                                  Next Lesson
+                                  <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <Button onClick={() => handleCompleteLesson()} disabled={completingLesson}>
+                              {completingLesson ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                              )}
+                              Mark as Complete
+                            </Button>
+                          )
+                        ) : (
                           <Button
-                            className="mt-4"
                             onClick={() => {
                               setQuizSubmitted(false);
                               setAnswers({});
