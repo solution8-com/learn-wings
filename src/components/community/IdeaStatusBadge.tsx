@@ -29,7 +29,7 @@ export function IdeaStatusBadge({
     <Badge
       variant="secondary"
       className={cn(
-        'font-medium border',
+        'font-medium border whitespace-nowrap',
         statusOption.color,
         size === 'sm' ? 'text-xs px-1.5 py-0' : 'text-sm px-2 py-0.5',
         className
