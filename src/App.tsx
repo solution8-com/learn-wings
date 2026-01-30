@@ -58,6 +58,7 @@ function AppRoutes() {
       <Route path="/app/community/:scope/posts/:postId" element={<ProtectedRoute><PostDetail /></ProtectedRoute>} />
       <Route path="/app/community/org/ideas" element={<ProtectedRoute><IdeaLibrary /></ProtectedRoute>} />
       <Route path="/app/community/org/ideas/new" element={<ProtectedRoute><IdeaSubmit /></ProtectedRoute>} />
+      <Route path="/app/community/org/ideas/edit/:ideaId" element={<ProtectedRoute><IdeaSubmit /></ProtectedRoute>} />
       <Route path="/app/community/org/ideas/:ideaId" element={<ProtectedRoute><IdeaDetail /></ProtectedRoute>} />
       
       {/* Protected org admin routes */}
