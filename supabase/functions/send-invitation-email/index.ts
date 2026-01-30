@@ -200,7 +200,7 @@ function generateEmailHtml({
           <!-- Header with Logo -->
           <tr>
             <td style="padding: 40px 40px 20px; text-align: center; border-bottom: 1px solid #e4e4e7;">
-              <img src="https://ai-uddannelse.dk/logo-light.png" alt="AI Uddannelse" style="height: 50px; width: auto;" />
+              <img src="https://cairuxpyfshugwjrrqha.supabase.co/storage/v1/object/public/email-assets/logo-light.png" alt="AI Uddannelse" style="height: 50px; width: auto;" />
               <p style="margin: 12px 0 0; font-size: 14px; color: #71717a;">
                 AI Uddannelse til Virksomheder
               </p>
