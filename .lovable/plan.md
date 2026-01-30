@@ -1,190 +1,406 @@
 
+# Community Module Implementation Plan
 
-# Azure Blob Storage Integration for Video Uploads
+This plan details an end-to-end implementation of the Community feature for AIR Academy Hub, supporting two scopes (Organization and Platform/Global) with Posts and Ideas content types.
 
-## Oversigt
+## Overview
 
-Denne plan tilføjer Azure Blob Storage som video-storage løsning, hvilket fjerner den nuværende 20MB filstørrelses-begrænsning og giver mulighed for at uploade videoer af enhver størrelse.
-
----
-
-## Sådan fungerer det
-
-### For Platform Admins (Upload af videoer)
-
-1. I lesson editoren vælges "Video" som lesson type
-2. En ny `AzureVideoUpload` komponent vises med drag-and-drop eller klik-til-upload
-3. Filen uploades direkte til Azure Blob Storage via en pre-signed URL (SAS token)
-4. Upload-progress vises i real-time
-5. Når upload er færdig, gemmes blob-stien i databasen
-
-### For Learners (Afspilning)
-
-Videoen streames direkte fra Azure Blob Storage via en tidsbegrænset SAS URL, som genereres on-demand når lektionen indlæses.
+The Community module will be a new major section of the platform with:
+- **Organization Community**: Private space for org members (posts + ideas)
+- **Platform Community**: Global space for all authenticated users (posts only in Phase 1)
+- Shared UI patterns but separate data isolation via RLS
 
 ---
 
-## Opsætning i Azure Portal
+## 1. Database Schema Design
 
-Før implementeringen kan bruges, skal du oprette følgende i Azure:
+### 1.1 New Tables to Create
 
-| Ressource | Beskrivelse |
-|-----------|-------------|
-| **Storage Account** | Opret en ny eller brug eksisterende storage account |
-| **Container** | Opret en container kaldet `lms-videos` med **Private** access level |
-| **Access Key** | Find storage account name og access key under "Access keys" |
+#### `community_categories` (replacing empty `idea_categories`)
+Stores the 8 required categories with metadata for special handling.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | Primary key |
+| name | text | Category name |
+| slug | text | URL-friendly identifier |
+| description | text | Helper text |
+| icon | text | Lucide icon name |
+| is_restricted | boolean | True for Announcements/Events |
+| sort_order | integer | Display order |
+
+Pre-populated with:
+1. Ideas / Opportunities
+2. Challenges / Obstacles  
+3. Risks & Mitigation
+4. Questions & Help
+5. Wins / Learnings
+6. Resources / Templates
+7. Announcements (restricted)
+8. Events / Office Hours (restricted)
+
+#### `community_posts`
+Main table for all community posts (both scopes).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | Primary key |
+| scope | enum('org', 'global') | Determines visibility |
+| org_id | uuid | Required for org scope, null for global |
+| user_id | uuid | Author |
+| category_id | uuid | FK to community_categories |
+| title | text | Post title |
+| content | text | Post body (markdown) |
+| tags | text[] | Array of tags |
+| is_pinned | boolean | Pinned to top of feed |
+| is_hidden | boolean | Hidden by moderator |
+| is_locked | boolean | Comments disabled |
+| event_date | timestamptz | For Events category |
+| event_location | text | Physical or virtual location |
+| event_registration_url | text | Sign-up link |
+| event_recording_url | text | After event ends |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `community_comments`
+Comments on posts.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | Primary key |
+| post_id | uuid | FK to community_posts |
+| user_id | uuid | Author |
+| org_id | uuid | For RLS (matches parent post scope) |
+| content | text | Comment body |
+| parent_comment_id | uuid | For threaded replies |
+| is_hidden | boolean | Hidden by moderator |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+#### `community_reports`
+User-submitted reports for moderation.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | Primary key |
+| reporter_user_id | uuid | Who reported |
+| target_type | enum('post', 'comment') | What was reported |
+| target_id | uuid | ID of post or comment |
+| org_id | uuid | For org-scope reports, null for global |
+| reason | text | Reporter's explanation |
+| status | enum('pending', 'reviewed', 'dismissed') | |
+| reviewed_by | uuid | Admin who handled |
+| reviewed_at | timestamptz | |
+| admin_notes | text | Internal notes |
+| created_at | timestamptz | |
+
+### 1.2 Modifications to Existing Tables
+
+#### `ideas` table enhancements
+Add new columns to support the structured form requirements:
+
+| New Column | Type | Notes |
+|------------|------|-------|
+| business_area | enum | HR, Finance, Sales, Support, Ops, IT, Legal, Other |
+| tags | text[] | Searchable tags |
+| current_process | text | "As-is" description |
+| pain_points | text | Why it matters |
+| affected_roles | text | Who is affected |
+| frequency_volume | text | How often/how much |
+| proposed_improvement | text | AI improvement idea |
+| desired_process | text | "To-be" (optional) |
+| data_inputs | text | Data sources (optional) |
+| systems_involved | text | Tools used (optional) |
+| constraints_risks | text | Limitations (optional) |
+| success_metrics | text | Measurement criteria (optional) |
+| admin_notes | text | Internal notes (not visible to learners) |
+| rejection_reason | text | When rejected |
+
+#### Update `idea_status` enum
+Change from current values to:
+- draft
+- submitted
+- in_review
+- accepted
+- rejected
+- in_progress
+- done
+
+### 1.3 RLS Policies
+
+**community_posts**:
+- Org scope: Only org members can read; org admins or platform admins can write restricted categories
+- Global scope: All authenticated users can read; only platform admins can write restricted categories
+- Authors can edit/delete own non-restricted posts (unless hidden/locked)
+
+**community_comments**:
+- Inherit visibility from parent post
+- Authors can edit/delete own comments (unless hidden)
+
+**community_reports**:
+- Any authenticated user can create for content they can see
+- Org admins see org-scope reports; platform admins see all
+
+**ideas** (update existing):
+- Continue org-scoped only
+- Authors can edit drafts; after submission, only admins can modify status/admin fields
 
 ---
 
-## Ændringsoversigt
+## 2. New Frontend Pages
 
-### Database
+### 2.1 Community Hub Pages
 
-| Ændring | Beskrivelse |
-|---------|-------------|
-| Tilføj `azure_blob_path` kolonne til `lessons` | Gemmer blob-stien til Azure-hostede videoer (nullable text) |
+#### `/app/community` - Community Landing
+Tabs or cards linking to:
+- Organization Community (if user has org membership)
+- Platform Community
 
-### Nye/Ændrede Filer
+#### `/app/community/org` - Org Community Feed
+- Post list with category badges, tags, comment count
+- Search, category filter, tag filter
+- "New Post" button
+- "Submit Idea" button (prominent)
+- Upcoming Events widget (sidebar or top)
+- Announcements highlighted
 
-| Fil | Ændringer |
-|-----|-----------|
-| `supabase/functions/azure-upload-url/index.ts` | **Ny** - Edge function der genererer SAS upload URL |
-| `supabase/functions/azure-view-url/index.ts` | **Ny** - Edge function der genererer SAS view URL |
-| `src/components/ui/azure-video-upload.tsx` | **Ny** - Upload komponent med progress tracking |
-| `src/lib/types.ts` | Tilføj `azure_blob_path` felt til Lesson interface |
-| `src/pages/platform-admin/CourseEditor.tsx` | Brug AzureVideoUpload for video lessons |
-| `src/pages/learner/CoursePlayer.tsx` | Hent Azure signed URL når lesson har azure_blob_path |
+#### `/app/community/org/posts/:postId` - Post Detail
+- Full post content
+- Comments thread
+- Report button
+- Edit/Delete for author
+- Hide/Lock for admins
 
-### Secrets (krævet)
+#### `/app/community/org/ideas` - Idea Library
+- List of submitted ideas (filterable by status, business area, tags)
+- Click to open idea detail
 
-| Secret Navn | Beskrivelse |
-|-------------|-------------|
-| `AZURE_STORAGE_ACCOUNT_NAME` | Dit Azure storage account navn |
-| `AZURE_STORAGE_ACCOUNT_KEY` | Din Azure storage access key |
-| `AZURE_STORAGE_CONTAINER_NAME` | Container navn (f.eks. `lms-videos`) |
+#### `/app/community/org/ideas/:ideaId` - Idea Detail
+- Structured display of all idea fields
+- Discussion thread (via `idea_comments`)
+- Status indicator
+- Admin actions (change status, add notes)
+
+#### `/app/community/org/ideas/new` - Submit Idea Form
+- Multi-step or single-page structured form
+- Helper text and examples for each field
+- Save as Draft / Submit buttons
+
+#### `/app/community/global` - Global Community Feed
+- Same pattern as org feed but for global scope
+- No idea submission (org-only in Phase 1)
+
+#### `/app/community/global/posts/:postId` - Global Post Detail
+- Same as org post detail
+
+### 2.2 Admin Pages
+
+#### `/app/admin/org/community` - Org Admin Moderation
+- Reports list (pending/reviewed/dismissed tabs)
+- Quick actions: View content, Hide, Remove, Lock
+- Navigate to reported item
+
+#### `/app/admin/org/ideas` - Org Admin Idea Management
+- Dense table/list of all org ideas
+- Tabs: Inbox (Submitted/In Review), Backlog (Accepted/In Progress/Done), All
+- Quick status change
+- Open idea detail
+- Add admin notes
+- Reject with reason
+
+#### `/app/admin/platform/community` - Platform Admin Moderation
+- Global scope reports
+- Same functionality as org moderation
 
 ---
 
-## Tekniske Detaljer
+## 3. Navigation Updates
 
-### Upload Flow
+### Sidebar Changes
+
+**Learner Section** (add):
+- "Community" with nested or direct links:
+  - Org Community
+  - Global Community
+
+**Organization Section** (add for org admins):
+- "Moderation" - org community moderation
+- "Ideas Overview" - dedicated idea management
+
+**Platform Admin Section** (add):
+- "Community Moderation" - global moderation
+
+---
+
+## 4. Component Architecture
+
+### Shared Components (src/components/community/)
 
 ```text
-+------------------+     +-------------------------+     +-------------------+
-| CourseEditor     | --> | azure-upload-url        | --> | Azure Blob        |
-| (Admin browser)  |     | (Edge Function)         |     | Storage           |
-+------------------+     +-------------------------+     +-------------------+
-        |                          |                              |
-        | 1. Request SAS URL       |                              |
-        |------------------------->|                              |
-        |                          | 2. Generate SAS token        |
-        |                          |----------------------------->|
-        |    3. Return upload URL  |                              |
-        |<-------------------------|                              |
-        |                                                         |
-        | 4. Direct upload to Azure (PUT with SAS)                |
-        |-------------------------------------------------------->|
-        |                                                         |
-        | 5. Store blob path in database                          |
-        |                                                         |
+components/community/
+  ├── PostCard.tsx              # Post preview in feed
+  ├── PostDetail.tsx            # Full post view
+  ├── PostForm.tsx              # Create/edit post
+  ├── CommentThread.tsx         # Comments display + input
+  ├── CommentItem.tsx           # Single comment
+  ├── CategoryBadge.tsx         # Styled category chip
+  ├── TagList.tsx               # Tag display
+  ├── EventCard.tsx             # Event post special display
+  ├── UpcomingEvents.tsx        # Events widget
+  ├── AnnouncementBanner.tsx    # Pinned announcements
+  ├── ReportDialog.tsx          # Report content modal
+  ├── IdeaCard.tsx              # Idea preview
+  ├── IdeaDetail.tsx            # Full idea view
+  ├── IdeaForm.tsx              # Structured idea submission
+  ├── IdeaStatusBadge.tsx       # Status indicator
+  ├── AdminIdeaActions.tsx      # Status change, notes
+  ├── ModerationCard.tsx        # Report item in admin view
+  └── CommunityEmptyState.tsx   # Empty state variants
 ```
 
-### View Flow
+---
 
-```text
-+------------------+     +-------------------------+     +-------------------+
-| CoursePlayer     | --> | azure-view-url          | --> | Azure Blob        |
-| (Learner browser)|     | (Edge Function)         |     | Storage           |
-+------------------+     +-------------------------+     +-------------------+
-        |                          |                              |
-        | 1. Request view URL      |                              |
-        |   (with blob_path)       |                              |
-        |------------------------->|                              |
-        |                          | 2. Validate user access      |
-        |                          | 3. Generate read-only SAS    |
-        |    4. Return signed URL  |                              |
-        |<-------------------------|                              |
-        |                                                         |
-        | 5. Stream video directly from Azure                     |
-        |-------------------------------------------------------->|
-```
+## 5. Type Definitions
 
-### SAS Token Parametre
-
-| Parameter | Upload | View |
-|-----------|--------|------|
-| Permission | `write`, `create` | `read` |
-| Expiry | 30 minutter | 2 timer |
-| IP restriction | Nej | Nej |
-| HTTPS only | Ja | Ja |
-
-### Edge Function: azure-upload-url
+Add to `src/lib/types.ts`:
 
 ```typescript
-// Pseudocode for SAS generation
-const sasToken = generateBlobSASQueryParameters({
-  containerName: CONTAINER_NAME,
-  blobName: uniqueFileName,
-  permissions: BlobSASPermissions.parse("cw"), // create, write
-  expiresOn: new Date(Date.now() + 30 * 60 * 1000), // 30 min
-  protocol: SASProtocol.Https,
-}, sharedKeyCredential);
+// Community types
+export type CommunityScope = 'org' | 'global';
+export type ReportStatus = 'pending' | 'reviewed' | 'dismissed';
+export type ReportTargetType = 'post' | 'comment';
+export type IdeaStatus = 'draft' | 'submitted' | 'in_review' | 'accepted' | 'rejected' | 'in_progress' | 'done';
+export type BusinessArea = 'hr' | 'finance' | 'sales' | 'support' | 'ops' | 'it' | 'legal' | 'other';
 
-return {
-  uploadUrl: `https://${ACCOUNT_NAME}.blob.core.windows.net/${CONTAINER_NAME}/${blobName}?${sasToken}`,
-  blobPath: blobName
-};
+export interface CommunityCategory { ... }
+export interface CommunityPost { ... }
+export interface CommunityComment { ... }
+export interface CommunityReport { ... }
+export interface Idea { ... } // Enhanced with new fields
 ```
 
-### AzureVideoUpload Komponent
+---
 
-```typescript
-// Nøglefunktioner
-- Anmod om upload-URL fra edge function
-- Upload direkte til Azure via PUT request
-- Track upload progress via XMLHttpRequest
-- Returnér blob path til parent component
-- Vis preview efter upload (via signed view URL)
-```
+## 6. Feature Toggle
 
-### Sikkerhed
-
-| Bekymring | Løsning |
-|-----------|---------|
-| Uautoriseret upload | Edge function validerer JWT (kun platform admins) |
-| Uautoriseret view | Edge function validerer at bruger har adgang til kurset |
-| Token leakage | Korte expiry tider (30 min upload, 2 timer view) |
-| CORS | Azure container konfigureres med tilladt origin |
+Add `community_enabled: boolean` to platform features settings so it can be disabled if needed.
 
 ---
 
-## Implementeringsrækkefølge
+## 7. Implementation Order
 
-1. **Database migration** - Tilføj `azure_blob_path` kolonne til lessons table
-2. **Secrets setup** - Tilføj Azure credentials som Supabase secrets
-3. **Edge function: azure-upload-url** - Generér SAS tokens til upload
-4. **Edge function: azure-view-url** - Generér SAS tokens til visning
-5. **AzureVideoUpload komponent** - Upload UI med progress
-6. **Opdater Lesson type** - Tilføj `azure_blob_path` til TypeScript interface
-7. **Opdater CourseEditor** - Brug AzureVideoUpload for video lessons
-8. **Opdater CoursePlayer** - Hent og brug Azure signed URLs
+### Phase A: Foundation (Database + Types)
+1. Create migration for new tables and enum types
+2. Insert default categories
+3. Update `ideas` table with new columns
+4. Create RLS policies for all new tables
+5. Add TypeScript types
+
+### Phase B: Core UI
+1. Create shared community components
+2. Implement org community feed page
+3. Implement post detail page
+4. Implement comments system
+5. Add navigation entries
+
+### Phase C: Ideas Module
+1. Idea submission form
+2. Idea library page
+3. Idea detail page
+4. Org admin idea management page
+
+### Phase D: Global Community
+1. Global community feed
+2. Global post detail
+3. Platform admin access
+
+### Phase E: Moderation
+1. Report functionality
+2. Org admin moderation page
+3. Platform admin moderation page
+4. Hide/Lock/Remove actions
+
+### Phase F: Events & Announcements
+1. Event post form with metadata
+2. Upcoming events widget
+3. Announcement highlighting
 
 ---
 
-## Begrænsninger
+## 8. Key Technical Decisions
 
-- **CORS-opsætning kræves**: Azure container skal konfigureres til at tillade requests fra din applikations domæne
-- **Ingen automatisk transcoding**: Videoer afspilles som uploadet - overvej format-krav (MP4 H.264 anbefales)
-- **Ingen CDN**: For global performance kan Azure CDN tilføjes senere
+### Scope Isolation
+- Org community: `scope = 'org'` AND `org_id = current_org`
+- Global community: `scope = 'global'` (org_id is null)
+- RLS ensures no cross-org data leakage
+
+### Categories
+- Single table shared across scopes
+- `is_restricted` flag controls who can post (admins only for Announcements/Events)
+
+### Ideas vs Posts
+- Ideas remain in `ideas` table (org-scoped only)
+- Ideas linked to org community but have their own distinct UI/flow
+- Posts handle all other content types including org discussions
+
+### Comments Architecture
+- Use existing `idea_comments` for ideas
+- New `community_comments` for posts
+- Same threaded reply pattern
+
+### Moderation Flow
+1. User clicks "Report" on post/comment
+2. Report stored with pending status
+3. Admin sees in moderation queue
+4. Admin can: dismiss, hide content, lock thread, add notes
+5. Report marked reviewed
 
 ---
 
-## Azure Portal CORS Opsætning
+## 9. Testing Checklist
 
-I Azure Storage Account under "Resource sharing (CORS)":
+After implementation, verify these scenarios:
 
-| Allowed Origins | Allowed Methods | Allowed Headers | Exposed Headers | Max Age |
-|-----------------|-----------------|-----------------|-----------------|---------|
-| `https://learn-wings.lovable.app` | `GET, PUT, OPTIONS` | `*` | `*` | `3600` |
-| `https://*.lovable.app` | `GET, PUT, OPTIONS` | `*` | `*` | `3600` |
+**Org Member (Learner)**:
+- Can view org community feed
+- Can create posts in non-restricted categories
+- Cannot create Announcements or Events
+- Can comment on posts
+- Can report content
+- Can submit ideas (save draft, submit)
+- Can view idea library
+- Can view global community
+- Cannot see other orgs' content
 
+**Org Admin**:
+- All learner capabilities plus:
+- Can create Announcements/Events in org scope
+- Can access moderation page
+- Can hide/lock posts and comments
+- Can access idea management
+- Can change idea status
+- Can add admin notes to ideas
+- Can reject ideas with reason
+
+**Platform Admin**:
+- Can create Announcements/Events in global scope
+- Can moderate global community
+- Can view all org ideas (if viewing as org admin)
+- Cannot access org-specific content without switching view mode
+
+---
+
+## 10. Files to Create/Modify
+
+### New Files (~25-30 files):
+- 1 database migration
+- 15+ component files in `src/components/community/`
+- 8+ page files in `src/pages/community/`
+- 2 admin pages for moderation
+
+### Modified Files:
+- `src/lib/types.ts` - Add community types
+- `src/components/layout/AppSidebar.tsx` - Add nav items
+- `src/App.tsx` - Add routes
+- `src/hooks/usePlatformSettings.tsx` - Add community toggle
+- `src/pages/platform-admin/PlatformSettings.tsx` - Add toggle UI
