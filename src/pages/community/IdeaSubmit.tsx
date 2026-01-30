@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
-import { createIdea, submitIdea, updateIdea } from '@/lib/ideas-api';
+import { createIdea, submitIdea, updateIdea, fetchIdea } from '@/lib/ideas-api';
 import { BUSINESS_AREAS } from '@/lib/community-types';
 import type { BusinessArea } from '@/lib/community-types';
 import { toast } from 'sonner';
@@ -60,12 +60,14 @@ type IdeaFormValues = z.infer<typeof ideaFormSchema>;
 
 export default function IdeaSubmit() {
   const navigate = useNavigate();
-  const { currentOrg } = useAuth();
+  const { ideaId } = useParams<{ ideaId?: string }>();
+  const { currentOrg, user } = useAuth();
   const queryClient = useQueryClient();
 
-  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(ideaId || null);
   const [tagInput, setTagInput] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
+  const isEditMode = !!ideaId;
 
   const form = useForm<IdeaFormValues>({
     resolver: zodResolver(ideaFormSchema),
@@ -85,6 +87,34 @@ export default function IdeaSubmit() {
       success_metrics: '',
     },
   });
+
+  // Load existing draft if editing
+  const { data: existingIdea, isLoading: isLoadingIdea } = useQuery({
+    queryKey: ['idea', ideaId],
+    queryFn: () => fetchIdea(ideaId!),
+    enabled: !!ideaId,
+  });
+
+  // Populate form when draft data loads
+  useEffect(() => {
+    if (existingIdea && existingIdea.status === 'draft' && existingIdea.user_id === user?.id) {
+      form.reset({
+        title: existingIdea.title || '',
+        business_area: existingIdea.business_area || '',
+        tags: existingIdea.tags || [],
+        current_process: existingIdea.current_process || '',
+        pain_points: existingIdea.pain_points || '',
+        affected_roles: existingIdea.affected_roles || '',
+        frequency_volume: existingIdea.frequency_volume || '',
+        proposed_improvement: existingIdea.proposed_improvement || '',
+        desired_process: existingIdea.desired_process || '',
+        data_inputs: existingIdea.data_inputs || '',
+        systems_involved: existingIdea.systems_involved || '',
+        constraints_risks: existingIdea.constraints_risks || '',
+        success_metrics: existingIdea.success_metrics || '',
+      });
+    }
+  }, [existingIdea, user?.id, form]);
 
   // Create or update draft mutation
   const saveDraftMutation = useMutation({

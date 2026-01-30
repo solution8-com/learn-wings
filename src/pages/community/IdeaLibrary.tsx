@@ -165,7 +165,14 @@ export default function IdeaLibrary() {
               <IdeaCard
                 key={idea.id}
                 idea={idea}
-                onClick={() => navigate(`/app/community/org/ideas/${idea.id}`)}
+                onClick={() => {
+                  // Drafts go to edit mode, other ideas go to detail view
+                  if (idea.status === 'draft') {
+                    navigate(`/app/community/org/ideas/edit/${idea.id}`);
+                  } else {
+                    navigate(`/app/community/org/ideas/${idea.id}`);
+                  }
+                }}
               />
             ))}
           </div>
