@@ -26,8 +26,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/useAuth';
-import { createIdea, submitIdea, updateIdea, fetchIdea } from '@/lib/ideas-api';
+import { createIdea, submitIdea, updateIdea, fetchIdea, deleteIdea } from '@/lib/ideas-api';
 import { BUSINESS_AREAS } from '@/lib/community-types';
 import type { BusinessArea } from '@/lib/community-types';
 import { toast } from 'sonner';
@@ -37,6 +48,7 @@ import {
   Save,
   Send,
   Lightbulb,
+  Trash2,
   X,
 } from 'lucide-react';
 
@@ -170,6 +182,22 @@ export default function IdeaSubmit() {
     },
     onError: () => {
       toast.error('Failed to submit idea');
+    },
+  });
+
+  // Delete draft mutation
+  const deleteDraftMutation = useMutation({
+    mutationFn: async () => {
+      if (!draftId) throw new Error('No draft to delete');
+      return deleteIdea(draftId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ideas'] });
+      toast.success('Draft deleted');
+      navigate('/app/community/org/ideas');
+    },
+    onError: () => {
+      toast.error('Failed to delete draft');
     },
   });
 
@@ -624,6 +652,42 @@ export default function IdeaSubmit() {
                   >
                     Previous
                   </Button>
+                )}
+                {isEditMode && draftId && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="text-destructive hover:text-destructive"
+                        disabled={deleteDraftMutation.isPending}
+                      >
+                        {deleteDraftMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 mr-2" />
+                        )}
+                        Delete Draft
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. The draft will be permanently deleted.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteDraftMutation.mutate()}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
               <div className="flex gap-2">
