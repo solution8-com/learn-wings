@@ -1,8 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Lightbulb, Users, Calendar } from 'lucide-react';
+import { MessageSquare, Lightbulb, Users, Calendar, FileEdit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type EmptyStateVariant = 'posts' | 'ideas' | 'comments' | 'events' | 'reports';
+type EmptyStateVariant = 'posts' | 'ideas' | 'comments' | 'events' | 'reports' | 'drafts';
 
 interface CommunityEmptyStateProps {
   variant: EmptyStateVariant;
@@ -22,6 +22,11 @@ const variants: Record<EmptyStateVariant, { icon: typeof MessageSquare; title: s
     icon: Lightbulb,
     title: 'No ideas submitted',
     description: 'Submit your first AI or process optimization idea to help improve workflows.',
+  },
+  drafts: {
+    icon: FileEdit,
+    title: 'No drafts',
+    description: 'You don\'t have any draft ideas. Start a new idea and save it as a draft to continue later.',
   },
   comments: {
     icon: MessageSquare,

@@ -17,19 +17,19 @@ import { IdeaCard } from '@/components/community/IdeaCard';
 import { CommunityEmptyState } from '@/components/community/CommunityEmptyState';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchIdeas } from '@/lib/ideas-api';
-import { BUSINESS_AREAS, IDEA_STATUS_OPTIONS } from '@/lib/community-types';
+import { BUSINESS_AREAS } from '@/lib/community-types';
 import type { IdeaStatusExtended, BusinessArea } from '@/lib/community-types';
 import {
   ArrowLeft,
   Search,
   Plus,
   Loader2,
-  Filter,
+  FileEdit,
 } from 'lucide-react';
 
 export default function IdeaLibrary() {
   const navigate = useNavigate();
-  const { currentOrg } = useAuth();
+  const { currentOrg, user } = useAuth();
 
   const [activeTab, setActiveTab] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,25 +38,29 @@ export default function IdeaLibrary() {
   // Status filters per tab
   const tabStatusFilters: Record<string, IdeaStatusExtended[]> = {
     all: [],
+    drafts: ['draft'],
     submitted: ['submitted', 'in_review'],
     approved: ['accepted', 'in_progress', 'done'],
     rejected: ['rejected'],
   };
 
-  // Fetch ideas
+  // Fetch ideas - for drafts tab, filter by current user
   const { data: ideas = [], isLoading } = useQuery({
-    queryKey: ['ideas', currentOrg?.id, activeTab, searchQuery, selectedBusinessArea],
+    queryKey: ['ideas', currentOrg?.id, activeTab, searchQuery, selectedBusinessArea, user?.id],
     queryFn: () => fetchIdeas(currentOrg!.id, {
       status: tabStatusFilters[activeTab].length > 0 ? tabStatusFilters[activeTab] : undefined,
       search: searchQuery || undefined,
       business_area: selectedBusinessArea ? [selectedBusinessArea as BusinessArea] : undefined,
+      user_id: activeTab === 'drafts' ? user?.id : undefined,
     }),
     enabled: !!currentOrg,
   });
 
-  // Filter out drafts for non-owners in the library view
+  // Filter out drafts for non-owners in the library view (except in drafts tab)
   const filteredIdeas = activeTab === 'all' 
     ? ideas.filter((i) => i.status !== 'draft')
+    : activeTab === 'drafts'
+    ? ideas.filter((i) => i.user_id === user?.id) // Extra safety check
     : ideas;
 
   if (!currentOrg) {
@@ -101,6 +105,10 @@ export default function IdeaLibrary() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
           <TabsList>
             <TabsTrigger value="all">All Ideas</TabsTrigger>
+            <TabsTrigger value="drafts" className="gap-1">
+              <FileEdit className="h-3 w-3" />
+              My Drafts
+            </TabsTrigger>
             <TabsTrigger value="submitted">Under Review</TabsTrigger>
             <TabsTrigger value="approved">Approved</TabsTrigger>
             <TabsTrigger value="rejected">Rejected</TabsTrigger>
@@ -147,9 +155,9 @@ export default function IdeaLibrary() {
           </div>
         ) : filteredIdeas.length === 0 ? (
           <CommunityEmptyState
-            variant="ideas"
+            variant={activeTab === 'drafts' ? 'drafts' : 'ideas'}
             onAction={() => navigate('/app/community/org/ideas/new')}
-            actionLabel="Submit First Idea"
+            actionLabel={activeTab === 'drafts' ? 'Start New Idea' : 'Submit First Idea'}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

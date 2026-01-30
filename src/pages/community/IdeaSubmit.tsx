@@ -106,7 +106,7 @@ export default function IdeaSubmit() {
     onSuccess: (data) => {
       setDraftId(data.id);
       queryClient.invalidateQueries({ queryKey: ['ideas'] });
-      toast.success('Draft saved');
+      toast.success('Draft saved! You can find it in the "My Drafts" tab of the Idea Library.');
     },
     onError: () => {
       toast.error('Failed to save draft');
