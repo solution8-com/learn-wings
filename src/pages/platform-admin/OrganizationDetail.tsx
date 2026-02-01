@@ -51,6 +51,8 @@ import {
 import { FileUpload } from '@/components/ui/file-upload';
 import { supabase } from '@/integrations/supabase/client';
 import { Organization, OrgMembership, Profile, OrgRole, Invitation } from '@/lib/types';
+import { sendInvitationEmail } from '@/lib/sendInvitationEmail';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Building2,
   Users,
@@ -92,6 +94,7 @@ export default function OrganizationDetail() {
   const { orgId } = useParams<{ orgId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [members, setMembers] = useState<(OrgMembership & { profile: Profile })[]>([]);
@@ -316,6 +319,10 @@ export default function OrganizationDetail() {
         org_id: orgId,
         email: inviteEmail,
         role: inviteRole,
+        first_name: inviteFirstName.trim() || null,
+        last_name: inviteLastName.trim() || null,
+        department: inviteDepartment.trim() || null,
+        invited_by_user_id: user?.id,
       })
       .select()
       .single();
@@ -327,10 +334,40 @@ export default function OrganizationDetail() {
         variant: 'destructive',
       });
     } else {
-      toast({
-        title: 'Invitation created!',
-        description: 'Copy the invite link to share with the user.',
+      // Get the link_id from the invitation using the RPC
+      const { data: linkId } = await supabase.rpc('get_invitation_link_id', {
+        invitation_id: invitation.id,
       });
+      
+      // Send invitation email
+      if (linkId) {
+        const emailResult = await sendInvitationEmail({
+          email: inviteEmail,
+          orgName: org?.name || null,
+          role: inviteRole,
+          linkId,
+        });
+        
+        if (emailResult.success) {
+          toast({
+            title: 'Invitation sent!',
+            description: 'An email has been sent to the invited user.',
+          });
+        } else {
+          console.error('Failed to send invitation email:', emailResult.error);
+          toast({
+            title: 'Invitation created',
+            description: 'The invitation was created but the email could not be sent. You can copy the invite link manually.',
+            variant: 'default',
+          });
+        }
+      } else {
+        toast({
+          title: 'Invitation created!',
+          description: 'Copy the invite link to share with the user.',
+        });
+      }
+      
       setInviteOpen(false);
       setInviteEmail('');
       setInviteFirstName('');
