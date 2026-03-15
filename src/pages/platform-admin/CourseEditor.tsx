@@ -25,6 +25,7 @@ import { AzureDocumentUpload } from '@/components/ui/azure-document-upload';
 import { QuizEditorDialog } from '@/components/platform-admin/QuizEditorDialog';
 
 import { supabase } from '@/integrations/supabase/client';
+import { extractLmsAssetPath, getSignedLmsAssetUrl } from '@/lib/storage';
 import { Course, CourseModule, Lesson, CourseLevel, LessonType } from '@/lib/types';
 import { ArrowLeft, Plus, Loader2, GripVertical, Trash2, Video, FileText, HelpCircle, Save, Pencil, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -80,11 +81,13 @@ export default function CourseEditor() {
     if (!courseId) return;
     const { data } = await supabase.from('courses').select('*').eq('id', courseId).maybeSingle();
     if (data) {
+      const refreshedThumbnailUrl = await getSignedLmsAssetUrl(data.thumbnail_url);
+
       setCourse(data as Course);
       setEditTitle(data.title);
       setEditDescription(data.description || '');
       setEditLevel(data.level as CourseLevel);
-      setEditThumbnailUrl(data.thumbnail_url || null);
+      setEditThumbnailUrl(refreshedThumbnailUrl);
     }
   };
 
@@ -121,9 +124,12 @@ export default function CourseEditor() {
   const handleSaveCourse = async () => {
     if (!courseId || !editTitle.trim()) return;
     setSaving(true);
+
+    const thumbnailToPersist = extractLmsAssetPath(editThumbnailUrl) ?? editThumbnailUrl;
+
     const { error } = await supabase
       .from('courses')
-      .update({ title: editTitle, description: editDescription, level: editLevel, thumbnail_url: editThumbnailUrl })
+      .update({ title: editTitle, description: editDescription, level: editLevel, thumbnail_url: thumbnailToPersist })
       .eq('id', courseId);
     if (error) {
       toast({ title: 'Failed to save course', description: error.message, variant: 'destructive' });

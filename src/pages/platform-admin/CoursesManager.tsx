@@ -31,6 +31,7 @@ import {
 import { FileUpload } from '@/components/ui/file-upload';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { extractLmsAssetPath, getSignedLmsAssetUrl } from '@/lib/storage';
 import { Course, CourseLevel, Organization, OrgCourseAccess } from '@/lib/types';
 import { BookOpen, Plus, Loader2, Trash2, Building2, ShieldCheck, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -40,10 +41,10 @@ export default function CoursesManager() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   // Tab state from URL
   const activeTab = searchParams.get('tab') || 'courses';
-  
+
   // Course list state
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +57,7 @@ export default function CoursesManager() {
   const [level, setLevel] = useState<CourseLevel>('basic');
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  
+
   // Delete state
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
@@ -76,7 +77,16 @@ export default function CoursesManager() {
       supabase.from('org_course_access').select('*'),
     ]);
 
-    if (coursesRes.data) setCourses(coursesRes.data as Course[]);
+    if (coursesRes.data) {
+      const coursesWithFreshThumbnails = await Promise.all(
+        (coursesRes.data as Course[]).map(async (course) => ({
+          ...course,
+          thumbnail_url: await getSignedLmsAssetUrl(course.thumbnail_url),
+        })),
+      );
+      setCourses(coursesWithFreshThumbnails);
+    }
+
     if (orgsRes.data) setOrgs(orgsRes.data as Organization[]);
     if (accessRes.data) setAccessRecords(accessRes.data as OrgCourseAccess[]);
     setLoading(false);
@@ -92,9 +102,18 @@ export default function CoursesManager() {
   const handleCreate = async () => {
     if (!title.trim()) return;
     setCreating(true);
+
+    const thumbnailToPersist = extractLmsAssetPath(thumbnailUrl) ?? thumbnailUrl;
+
     const { error } = await supabase.from('courses').insert({
-      title, description, level, thumbnail_url: thumbnailUrl, created_by_user_id: user?.id, is_published: false,
+      title,
+      description,
+      level,
+      thumbnail_url: thumbnailToPersist,
+      created_by_user_id: user?.id,
+      is_published: false,
     });
+
     if (error) {
       toast({ title: 'Failed to create course', description: error.message, variant: 'destructive' });
     } else {

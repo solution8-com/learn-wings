@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Course, Enrollment, CourseLevel } from '@/lib/types';
+import { getSignedLmsAssetUrl } from '@/lib/storage';
 import { BookOpen, Play, Clock, CheckCircle2, Loader2, MoreVertical, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -70,7 +71,14 @@ export default function LearnerCourses() {
         .eq('is_published', true);
 
       if (coursesData) {
-        setCourses(coursesData as Course[]);
+        const coursesWithFreshThumbnails = await Promise.all(
+          (coursesData as Course[]).map(async (course) => ({
+            ...course,
+            thumbnail_url: await getSignedLmsAssetUrl(course.thumbnail_url),
+          })),
+        );
+
+        setCourses(coursesWithFreshThumbnails);
       }
     }
 
