@@ -71,7 +71,14 @@ export default function LearnerCourses() {
         .eq('is_published', true);
 
       if (coursesData) {
-        setCourses(coursesData as Course[]);
+        const coursesWithFreshThumbnails = await Promise.all(
+          (coursesData as Course[]).map(async (course) => ({
+            ...course,
+            thumbnail_url: await getSignedLmsAssetUrl(course.thumbnail_url),
+          })),
+        );
+
+        setCourses(coursesWithFreshThumbnails);
       }
     }
 
