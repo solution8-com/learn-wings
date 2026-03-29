@@ -260,7 +260,15 @@ export default function LearnerDashboard() {
 
               return (
                 <Card key={enrollment.id} className="overflow-hidden transition-shadow hover:shadow-card-hover">
-                  <div className="aspect-video bg-gradient-to-br from-primary/80 to-primary" />
+                  <div className="aspect-video bg-gradient-to-br from-primary/80 to-primary relative overflow-hidden">
+                    {enrollment.course?.thumbnail_url && (
+                      <img
+                        src={enrollment.course.thumbnail_url}
+                        alt={enrollment.course.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
                   <CardContent className="p-4">
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <h3 className="font-display font-semibold leading-tight">
