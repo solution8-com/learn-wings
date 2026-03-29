@@ -11,8 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
+import { getSignedLmsAssetUrl } from '@/lib/storage';
 import { Enrollment, Course } from '@/lib/types';
-import { BookOpen, Clock, Award, Play, ArrowRight, Loader2 } from 'lucide-react';
+import { BookOpen, Clock, Award, Play, ArrowRight, Loader2, TrendingUp } from 'lucide-react';
 import { CertificateCard } from '@/components/learner/CertificateCard';
 import { toast } from '@/components/ui/sonner';
 
