@@ -67,8 +67,10 @@ export default function OrgIdeasManagement() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<string>('inbox');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBusinessArea, setSelectedBusinessArea] = useState<string>('');
+  const [draggedIdeaId, setDraggedIdeaId] = useState<string | null>(null);
   
   // Status update dialog
   const [selectedIdea, setSelectedIdea] = useState<EnhancedIdea | null>(null);
@@ -151,6 +153,38 @@ export default function OrgIdeasManagement() {
     }
   };
 
+  const kanbanColumns: { key: IdeaStatusExtended; label: string }[] = [
+    { key: 'submitted', label: 'Submitted' },
+    { key: 'in_review', label: 'In Review' },
+    { key: 'accepted', label: 'Accepted' },
+    { key: 'in_progress', label: 'In Progress' },
+    { key: 'done', label: 'Done' },
+    { key: 'rejected', label: 'Rejected' },
+  ];
+
+  const handleDropStatus = async (status: IdeaStatusExtended) => {
+    if (!draggedIdeaId) return;
+
+    const idea = filteredIdeas.find((i) => i.id === draggedIdeaId);
+    if (!idea || idea.status === status) {
+      setDraggedIdeaId(null);
+      return;
+    }
+
+    try {
+      await updateIdeaStatus(idea.id, {
+        status,
+        admin_notes: idea.admin_notes || undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ['ideas-admin'] });
+      toast.success('Status updated');
+    } catch {
+      toast.error('Failed to update status');
+    } finally {
+      setDraggedIdeaId(null);
+    }
+  };
+
   const getBusinessAreaLabel = (value: string | null) => {
     if (!value) return '-';
     return BUSINESS_AREAS.find((a) => a.value === value)?.label || value;
@@ -224,6 +258,23 @@ export default function OrgIdeasManagement() {
           </TabsList>
         </Tabs>
 
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            onClick={() => setViewMode('list')}
+          >
+            List View
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === 'kanban' ? 'default' : 'outline'}
+            onClick={() => setViewMode('kanban')}
+          >
+            Kanban View
+          </Button>
+        </div>
+
         {/* Filters */}
         <Card className="mb-6">
           <CardContent className="pt-4">
@@ -257,7 +308,7 @@ export default function OrgIdeasManagement() {
           </CardContent>
         </Card>
 
-        {/* Ideas table */}
+        {/* Ideas table / board */}
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -274,6 +325,51 @@ export default function OrgIdeasManagement() {
               </p>
             </CardContent>
           </Card>
+        ) : viewMode === 'kanban' ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {kanbanColumns.map((column) => {
+              const columnIdeas = filteredIdeas.filter((idea) => idea.status === column.key);
+              return (
+                <Card
+                  key={column.key}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => handleDropStatus(column.key)}
+                  className="min-h-[240px]"
+                >
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center justify-between text-base">
+                      <span>{column.label}</span>
+                      <Badge variant="secondary">{columnIdeas.length}</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {columnIdeas.length === 0 ? (
+                      <div className="rounded border border-dashed p-4 text-sm text-muted-foreground">
+                        Drop ideas here
+                      </div>
+                    ) : (
+                      columnIdeas.map((idea) => (
+                        <div
+                          key={idea.id}
+                          draggable
+                          onDragStart={() => setDraggedIdeaId(idea.id)}
+                          onDragEnd={() => setDraggedIdeaId(null)}
+                          onClick={() => navigate(`/app/community/org/ideas/${idea.id}`)}
+                          className="cursor-move rounded border p-3 hover:bg-muted/50"
+                        >
+                          <p className="line-clamp-2 font-medium">{idea.title}</p>
+                          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{idea.profile?.full_name || 'Unknown'}</span>
+                            <span>{idea.vote_count || 0} 👍</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         ) : (
           <Card>
             <Table>
