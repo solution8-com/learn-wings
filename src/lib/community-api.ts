@@ -72,7 +72,7 @@ export async function fetchPosts(filters: PostFilters): Promise<CommunityPost[]>
     return (data || []).map((p) => ({
       ...p,
       comment_count: countMap[p.id] || 0,
-    })) as CommunityPost[];
+    })) as unknown as CommunityPost[];
   }
 
   return (data || []) as CommunityPost[];
