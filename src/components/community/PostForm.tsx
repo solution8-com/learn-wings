@@ -74,9 +74,6 @@ export function PostForm({
       content: '',
       category_id: '',
       tags: [],
-      event_date: '',
-      event_location: '',
-      event_registration_url: '',
       ...initialData,
     },
   });
