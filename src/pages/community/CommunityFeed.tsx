@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PostCard } from '@/components/community/PostCard';
 import { PostForm } from '@/components/community/PostForm';
-import { UpcomingEvents } from '@/components/community/UpcomingEvents';
+
 import { CommunityEmptyState } from '@/components/community/CommunityEmptyState';
 import { CategoryBadge } from '@/components/community/CategoryBadge';
 import { AIChampionsList } from '@/components/community/AIChampionsList';
