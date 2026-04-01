@@ -484,6 +484,12 @@ export default function OrgAnalytics() {
           />
         </TabsContent>
 
+        {!isGlobalView && (
+          <TabsContent value="members">
+            <OrgMembersTab />
+          </TabsContent>
+        )}
+
         <TabsContent value="team">
           {effectiveOrgId ? (
             <TeamPerformanceTab
