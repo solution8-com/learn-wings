@@ -78,10 +78,6 @@ export function PostForm({
     },
   });
 
-  const selectedCategoryId = form.watch('category_id');
-  const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
-  const isEventCategory = selectedCategory?.slug === 'events';
-
   // Filter categories based on permissions
   const availableCategories = categories.filter(
     (c) => !c.is_restricted || canPostRestricted
