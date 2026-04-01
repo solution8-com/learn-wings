@@ -8,7 +8,6 @@ import {
   Trophy,
   FileText,
   Megaphone,
-  Calendar,
   LucideIcon,
 } from 'lucide-react';
 
