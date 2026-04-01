@@ -17,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { Organization } from '@/lib/types';
-import { Loader2, Users, BarChart3, BookOpen, Building2, Pencil } from 'lucide-react';
+import { Loader2, Users, BarChart3, BookOpen, Building2, Pencil, GraduationCap } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnalyticsOverview } from '@/components/org-admin/analytics/AnalyticsOverview';
 import { TeamPerformanceTab } from '@/components/org-admin/analytics/TeamPerformanceTab';
@@ -464,7 +464,7 @@ export default function OrgAnalytics() {
             </TabsTrigger>
           )}
           <TabsTrigger value="team" className="gap-2">
-            <Users className="h-4 w-4" />
+            <GraduationCap className="h-4 w-4" />
             Learning Progress
           </TabsTrigger>
           <TabsTrigger value="courses" className="gap-2">
