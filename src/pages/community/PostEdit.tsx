@@ -55,9 +55,6 @@ export default function PostEdit() {
       title: post.title,
       content: post.content,
       tags: post.tags || [],
-      event_date: post.event_date || '',
-      event_location: post.event_location || '',
-      event_registration_url: post.event_registration_url || '',
     };
   }, [post]);
 

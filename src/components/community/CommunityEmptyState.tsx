@@ -36,11 +36,6 @@ const variants: Record<EmptyStateVariant, { icon: typeof MessageSquare; title: s
     title: 'No comments yet',
     description: 'Be the first to share your thoughts on this post.',
   },
-  events: {
-    icon: Calendar,
-    title: 'No upcoming events',
-    description: 'Check back soon for upcoming events, webinars, and office hours.',
-  },
   reports: {
     icon: Users,
     title: 'No reports to review',

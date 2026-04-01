@@ -91,33 +91,6 @@ export function PostCard({
         <h3 className="font-semibold text-base line-clamp-2">{post.title}</h3>
         <p className="text-sm text-muted-foreground line-clamp-2">{post.content}</p>
 
-        {isEvent && post.event_date && (
-          <div className="flex items-center gap-4 text-sm text-muted-foreground bg-muted/50 rounded-md p-2">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>{new Date(post.event_date).toLocaleDateString()}</span>
-            </div>
-            {post.event_location && (
-              <div className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                <span className="truncate max-w-[150px]">{post.event_location}</span>
-              </div>
-            )}
-            {post.event_registration_url && (
-              <a
-                href={post.event_registration_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-primary hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ExternalLink className="h-3 w-3" />
-                Register
-              </a>
-            )}
-          </div>
-        )}
-
         <div className="flex items-center justify-between pt-2">
           <TagList tags={post.tags} maxVisible={3} size="sm" />
           <div className="flex items-center gap-3 text-muted-foreground text-sm">

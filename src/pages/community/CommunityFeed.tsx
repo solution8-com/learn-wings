@@ -283,14 +283,6 @@ export default function CommunityFeed() {
 
           {/* Sidebar */}
           <div className="space-y-4">
-            {/* Upcoming Events */}
-            {eventPosts.length > 0 && (
-              <UpcomingEvents
-                events={eventPosts}
-                onEventClick={(event) => navigate(`/app/community/${scope}/posts/${event.id}`)}
-              />
-            )}
-
             {/* Idea Library link (org only) */}
             {scope === 'org' && currentOrg && (
               <Card>

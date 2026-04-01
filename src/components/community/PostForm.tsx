@@ -200,68 +200,6 @@ export function PostForm({
               )}
             />
 
-            {/* Event-specific fields */}
-            {isEventCategory && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="event_date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Event Date & Time</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            type="datetime-local"
-                            className="pl-10"
-                            {...field}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="event_location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="e.g., Zoom, Conference Room A, or full address"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>Physical location or virtual meeting platform</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="event_registration_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Registration URL (optional)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="url"
-                          placeholder="https://..."
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-
             {/* Tags */}
             <FormField
               control={form.control}

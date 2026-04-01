@@ -37,7 +37,7 @@ const colorMap: Record<string, string> = {
   'wins-learnings': 'bg-green-100 text-green-800 border-green-200',
   'resources-templates': 'bg-purple-100 text-purple-800 border-purple-200',
   'announcements': 'bg-pink-100 text-pink-800 border-pink-200',
-  'events': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+  
 };
 
 export function CategoryBadge({
