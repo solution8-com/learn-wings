@@ -212,7 +212,7 @@ export default function CommunityFeed() {
                   >
                     All
                   </Button>
-                  {categories.map((cat) => (
+                  {categories.filter((cat) => cat.slug !== 'events').map((cat) => (
                     <Button
                       key={cat.id}
                       variant={selectedCategory === cat.id ? 'default' : 'outline'}
