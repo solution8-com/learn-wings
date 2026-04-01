@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { CategoryBadge } from './CategoryBadge';
-import { Loader2, X, Calendar } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import type { CommunityCategory, CommunityScope, CreatePostInput } from '@/lib/community-types';
 
 const postSchema = z.object({
