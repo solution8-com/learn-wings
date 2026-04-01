@@ -37,9 +37,6 @@ const postSchema = z.object({
   content: z.string().min(10, 'Content must be at least 10 characters'),
   category_id: z.string().min(1, 'Please select a category'),
   tags: z.array(z.string()).max(5, 'Maximum 5 tags allowed'),
-  event_date: z.string().optional(),
-  event_location: z.string().optional(),
-  event_registration_url: z.string().url().optional().or(z.literal('')),
 });
 
 type PostFormValues = z.infer<typeof postSchema>;
