@@ -14,7 +14,7 @@ import ResetPassword from "./pages/ResetPassword";
 import LearnerDashboard from "./pages/learner/Dashboard";
 import LearnerCourses from "./pages/learner/Courses";
 import CoursePlayer from "./pages/learner/CoursePlayer";
-import OrgUsers from "./pages/org-admin/OrgUsers";
+
 import OrgAnalytics from "./pages/org-admin/OrgAnalytics";
 import OrgSettings from "./pages/org-admin/OrgSettings";
 import OrganizationsManager from "./pages/platform-admin/OrganizationsManager";
