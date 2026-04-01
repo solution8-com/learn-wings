@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { supabase } from '@/integrations/supabase/client';
 import { Enrollment, Course } from '@/lib/types';
-import { BookOpen, Clock, Award, Play, ArrowRight, Loader2 } from 'lucide-react';
+import { BookOpen, Clock, Award, Play, ArrowRight, Loader2, TrendingUp } from 'lucide-react';
 import { CertificateCard } from '@/components/learner/CertificateCard';
 import { toast } from '@/components/ui/sonner';
 
@@ -215,7 +215,7 @@ export default function LearnerDashboard() {
           icon={
             totalProgress > 0
               ? <ProgressRing progress={totalProgress} size={24} strokeWidth={3} showLabel={false} />
-              : <Award className="h-5 w-5" />
+              : <TrendingUp className="h-5 w-5" />
           }
         />
       </div>
