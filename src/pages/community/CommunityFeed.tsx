@@ -113,9 +113,6 @@ export default function CommunityFeed() {
     ? effectiveIsPlatformAdmin 
     : effectiveIsOrgAdmin || effectiveIsPlatformAdmin;
 
-  // Filter event posts for the widget
-  const eventPosts = posts.filter((p) => p.category?.slug === 'events');
-
   // Get all unique tags from posts
   const allTags = [...new Set(posts.flatMap((p) => p.tags || []))];
   const hasActiveFilters = Boolean(searchQuery || selectedCategory || selectedTags.length > 0);
