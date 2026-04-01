@@ -119,7 +119,7 @@ export async function createPost(input: CreatePostInput): Promise<CommunityPost>
     .single();
 
   if (error) throw error;
-  return data as CommunityPost;
+  return data as unknown as CommunityPost;
 }
 
 // Update post
