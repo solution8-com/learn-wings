@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { MessageSquare, Lightbulb, Users, Calendar, FileEdit, FolderOpen } from 'lucide-react';
+import { MessageSquare, Lightbulb, Users, FileEdit, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type EmptyStateVariant = 'posts' | 'ideas' | 'comments' | 'events' | 'reports' | 'drafts' | 'resources';
