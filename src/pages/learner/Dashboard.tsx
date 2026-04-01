@@ -113,6 +113,18 @@ export default function LearnerDashboard() {
         });
 
         setProgressData(progressMap);
+
+        // Resolve thumbnail signed URLs
+        const thumbMap: Record<string, string> = {};
+        await Promise.all(
+          enrollmentData.map(async (e: any) => {
+            if (e.course?.thumbnail_url) {
+              const url = await getSignedLmsAssetUrl(e.course.thumbnail_url);
+              if (url) thumbMap[e.course_id] = url;
+            }
+          })
+        );
+        setThumbnailUrls(thumbMap);
       }
 
       setLoading(false);
