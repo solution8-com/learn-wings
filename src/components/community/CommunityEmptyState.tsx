@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare, Lightbulb, Users, FileEdit, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type EmptyStateVariant = 'posts' | 'ideas' | 'comments' | 'events' | 'reports' | 'drafts' | 'resources';
+type EmptyStateVariant = 'posts' | 'ideas' | 'comments' | 'reports' | 'drafts' | 'resources';
 
 interface CommunityEmptyStateProps {
   variant: EmptyStateVariant;
