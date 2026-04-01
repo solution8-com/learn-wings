@@ -31,7 +31,6 @@ export function PostCard({
     .toUpperCase()
     .slice(0, 2) || 'U';
 
-  const isEvent = post.category?.slug === 'events';
   const isAnnouncement = post.category?.slug === 'announcements';
 
   return (
