@@ -203,8 +203,8 @@ export default function OrgIdeasManagement() {
 
   const getTabCount = (tab: string) => {
     const statuses = tabStatusFilters[tab];
-    if (statuses.length === 0) return ideas.filter(i => i.status !== 'draft').length;
-    return ideas.filter((i) => statuses.includes(i.status)).length;
+    if (statuses.length === 0) return allIdeas.filter(i => i.status !== 'draft').length;
+    return allIdeas.filter((i) => statuses.includes(i.status)).length;
   };
 
   if (!currentOrg) {
