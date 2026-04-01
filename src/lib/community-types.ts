@@ -47,10 +47,6 @@ export interface CommunityPost {
   is_pinned: boolean;
   is_hidden: boolean;
   is_locked: boolean;
-  event_date: string | null;
-  event_location: string | null;
-  event_registration_url: string | null;
-  event_recording_url: string | null;
   created_at: string;
   updated_at: string;
   // Joined relations
