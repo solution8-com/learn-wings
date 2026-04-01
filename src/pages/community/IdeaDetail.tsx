@@ -208,7 +208,7 @@ export default function IdeaDetail() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/app/community/org/ideas')}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back
