@@ -26,8 +26,8 @@ AS $function$
         AND oca.access = 'enabled'
         AND (
           c.thumbnail_url = file_path
-          OR c.thumbnail_url LIKE '%/lms-assets/' || file_path
-          OR c.thumbnail_url LIKE '%/lms-assets/' || file_path || '?%'
+          OR c.thumbnail_url LIKE '%/lms-assets/' || replace(replace(replace(file_path, '\', '\\'), '%', '\%'), '_', '\_') ESCAPE '\'
+          OR c.thumbnail_url LIKE '%/lms-assets/' || replace(replace(replace(file_path, '\', '\\'), '%', '\%'), '_', '\_') || '?%' ESCAPE '\'
         )
     )
 $function$;
@@ -64,8 +64,8 @@ AS $function$
         AND om.status = 'active'
         AND (
           c.thumbnail_url = file_path
-          OR c.thumbnail_url LIKE '%/lms-assets/' || file_path
-          OR c.thumbnail_url LIKE '%/lms-assets/' || file_path || '?%'
+          OR c.thumbnail_url LIKE '%/lms-assets/' || replace(replace(replace(file_path, '\', '\\'), '%', '\%'), '_', '\_') ESCAPE '\'
+          OR c.thumbnail_url LIKE '%/lms-assets/' || replace(replace(replace(file_path, '\', '\\'), '%', '\%'), '_', '\_') || '?%' ESCAPE '\'
         )
     )
 $function$;

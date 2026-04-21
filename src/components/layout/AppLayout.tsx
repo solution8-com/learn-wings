@@ -55,16 +55,18 @@ export function AppLayout({ children, breadcrumbs = [], title }: AppLayoutProps)
                   const isLast = index === breadcrumbs.length - 1;
                   const resolvedHref = crumb.href ?? DEFAULT_BREADCRUMB_HREFS[crumb.label];
                   return (
-                    <BreadcrumbItem key={index}>
-                      <BreadcrumbSeparator />
-                      {!isLast && resolvedHref ? (
-                        <BreadcrumbLink asChild>
-                          <Link to={resolvedHref}>{crumb.label}</Link>
-                        </BreadcrumbLink>
-                      ) : (
-                        <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                      )}
-                    </BreadcrumbItem>
+                    <>
+                      <BreadcrumbSeparator key={`sep-${index}`} />
+                      <BreadcrumbItem key={index}>
+                        {!isLast && resolvedHref ? (
+                          <BreadcrumbLink asChild>
+                            <Link to={resolvedHref}>{crumb.label}</Link>
+                          </BreadcrumbLink>
+                        ) : (
+                          <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                        )}
+                      </BreadcrumbItem>
+                    </>
                   );
                 })}
               </BreadcrumbList>
